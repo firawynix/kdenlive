@@ -31,6 +31,7 @@ public:
     void cancel();
 
     static QString parseSrt(const QByteArray &srt, double fps);
+    static QString selectAvailableModel(const QString &configuredModel, const QStringList &installedModels);
 
 Q_SIGNALS:
     void statusChanged(const QString &message);
@@ -54,6 +55,7 @@ private:
     QString m_audioPath;
     QString m_srtPath;
     QString m_timelineFingerprint;
+    QString m_model;
     double m_fps{0.0};
     bool m_cancelRequested{false};
     Phase m_phase{Phase::Idle};

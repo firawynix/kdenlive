@@ -63,11 +63,16 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
     }
 
     const auto python = m_whisper->venvPythonExecs().python;
-    const QString model = KdenliveSettings::whisperModel();
-    if (python.isEmpty() || m_whisper->subtitleScript().isEmpty() || !m_whisper->getInstalledModels().contains(model)) {
+    const QString configuredModel = KdenliveSettings::whisperModel();
+    m_model = selectAvailableModel(configuredModel, m_whisper->getInstalledModels());
+    if (python.isEmpty() || m_whisper->subtitleScript().isEmpty() || m_model.isEmpty()) {
         Q_EMIT errorOccurred(
             i18n("Local speech recognition is not ready. Open Settings > Configure Kdenlive > Plugins, install Whisper and a model, then try again."));
         return;
+    }
+    if (m_model != configuredModel) {
+        KdenliveSettings::setWhisperModel(m_model);
+        Q_EMIT statusChanged(i18n("Using the installed Whisper model “%1” automatically.", m_model));
     }
 
     m_tempDir = std::make_unique<QTemporaryDir>();
@@ -99,7 +104,7 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
         Q_EMIT errorOccurred(i18n("The current timeline description could not be read for a safe checkpoint."));
         return;
     }
-    m_timelineFingerprint = AiSessionStore::timelineFingerprint(sceneFile.readAll(), fps, model, KdenliveSettings::whisperLanguage(), m_tempDir->path());
+    m_timelineFingerprint = AiSessionStore::timelineFingerprint(sceneFile.readAll(), fps, m_model, KdenliveSettings::whisperLanguage(), m_tempDir->path());
     const QString cachedTranscript = AiSessionStore::loadTranscript(m_timelineFingerprint);
     if (!cachedTranscript.isEmpty()) {
         const QString fingerprint = m_timelineFingerprint;
@@ -127,8 +132,7 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
 void LocalTimelineTranscriber::startWhisper()
 {
     Q_EMIT statusChanged(i18n("Transcribing locally with Whisper. This may take several minutes…"));
-    QStringList arguments{m_whisper->subtitleScript(), m_audioPath, KdenliveSettings::whisperModel(),
-                          QStringLiteral("ffmpeg_path=%1").arg(KdenliveSettings::ffmpegpath())};
+    QStringList arguments{m_whisper->subtitleScript(), m_audioPath, m_model, QStringLiteral("ffmpeg_path=%1").arg(KdenliveSettings::ffmpegpath())};
     const QString language = KdenliveSettings::whisperLanguage().simplified();
     if (!language.isEmpty()) {
         arguments << QStringLiteral("language=%1").arg(language);
@@ -181,6 +185,17 @@ QString LocalTimelineTranscriber::parseSrt(const QByteArray &srt, double fps)
         lines << QStringLiteral("[%1-%2] %3").arg(startFrame).arg(endFrame).arg(text);
     }
     return lines.join(QLatin1Char('\n'));
+}
+
+QString LocalTimelineTranscriber::selectAvailableModel(const QString &configuredModel, const QStringList &installedModels)
+{
+    if (installedModels.contains(configuredModel)) {
+        return configuredModel;
+    }
+    if (installedModels.contains(QStringLiteral("base"))) {
+        return QStringLiteral("base");
+    }
+    return installedModels.value(0);
 }
 
 void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus status)
@@ -269,6 +284,7 @@ void LocalTimelineTranscriber::reset()
     m_audioPath.clear();
     m_srtPath.clear();
     m_timelineFingerprint.clear();
+    m_model.clear();
     m_fps = 0.0;
     m_tempDir.reset();
 }

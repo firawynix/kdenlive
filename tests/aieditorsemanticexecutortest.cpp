@@ -18,6 +18,15 @@ TEST_CASE("AI local SRT transcript uses timeline frames", "[AIEditor][Transcript
     REQUIRE(LocalTimelineTranscriber::parseSrt(srt, 25.0) == QStringLiteral("[25-63] Olá mundo\n[100-125] Salesforce e IA"));
 }
 
+TEST_CASE("AI local transcription selects an installed Whisper model", "[AIEditor][Transcript]")
+{
+    REQUIRE(LocalTimelineTranscriber::selectAvailableModel(QStringLiteral("turbo"), {QStringLiteral("base")}) == QStringLiteral("base"));
+    REQUIRE(LocalTimelineTranscriber::selectAvailableModel(QStringLiteral("small"), {QStringLiteral("base"), QStringLiteral("small")}) ==
+            QStringLiteral("small"));
+    REQUIRE(LocalTimelineTranscriber::selectAvailableModel(QStringLiteral("turbo"), {QStringLiteral("tiny")}) == QStringLiteral("tiny"));
+    REQUIRE(LocalTimelineTranscriber::selectAvailableModel(QStringLiteral("turbo"), {}).isEmpty());
+}
+
 TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Semantic]")
 {
     auto binModel = pCore->projectItemModel();
