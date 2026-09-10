@@ -9,7 +9,13 @@
 4. Parsed SRT cues are converted to frame-aligned transcript segments.
 5. `AiProviderClient` sends those segments with the instruction and a strict
    version-1 edit-plan schema.
-6. `EditPlanExecutor` validates and executes operations in descending start-frame
+6. Long transcripts are divided into bounded, slightly overlapping segments.
+   Each segment owns a disjoint frame interval so boundary context remains
+   available without duplicating edits.
+7. `AiSessionStore` saves the local transcript and every completed provider
+   fragment atomically. It derives identifiers from timeline content and request
+   settings and never stores a credential.
+8. `EditPlanExecutor` validates and executes operations in descending start-frame
    order, composing all undo/redo functions into one action.
 
 ## Operations
@@ -40,3 +46,9 @@
 - Branding changes only user-facing identity. The `kdenlive` application id and
   upstream project/legal metadata remain intact for compatibility and proper
   attribution.
+- Provider requests use a 16,000-character transcript budget per segment and a
+  provider-appropriate 16,384-token output ceiling. OpenRouter routing requires
+  support for the requested structured-output parameters.
+- Transcript checkpoints are stored only in the application-local data folder,
+  expire after seven days, and are reused only when the serialized timeline,
+  FPS, Whisper model, and language produce the same fingerprint.

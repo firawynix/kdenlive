@@ -47,10 +47,16 @@ TEST_CASE("AI provider request construction", "[AIEditor][Provider]")
     if (provider == AiProvider::Anthropic) {
         REQUIRE(request.url.host() == QLatin1String("api.anthropic.com"));
         REQUIRE(body.contains(QStringLiteral("output_config")));
-        REQUIRE(body.contains(QStringLiteral("max_tokens")));
+        REQUIRE(body.value(QStringLiteral("max_tokens")).toInt() == 16384);
     } else {
         REQUIRE(body.contains(QStringLiteral("response_format")));
         REQUIRE(body.value(QStringLiteral("messages")).toArray().size() == 2);
+        if (provider == AiProvider::OpenRouter) {
+            REQUIRE(body.value(QStringLiteral("max_tokens")).toInt() == 16384);
+            REQUIRE(body.value(QStringLiteral("provider")).toObject().value(QStringLiteral("require_parameters")).toBool());
+        } else {
+            REQUIRE(body.value(QStringLiteral("max_completion_tokens")).toInt() == 16384);
+        }
     }
 }
 
@@ -122,6 +128,22 @@ TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
                                                                chatResponse(QByteArrayLiteral(R"({"version":9,"operations":[]})")));
         REQUIRE_FALSE(result.isValid());
         REQUIRE(result.error.contains(QStringLiteral("unsafe edit plan")));
+    }
+
+    SECTION("reports output token exhaustion")
+    {
+        const QByteArray payload = R"({"choices":[{"message":{"content":""},"finish_reason":"length"}]})";
+        const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 200, QNetworkReply::NoError, false, payload);
+        REQUIRE_FALSE(result.isValid());
+        REQUIRE(result.error.contains(QStringLiteral("token limit")));
+    }
+
+    SECTION("allows an empty plan for a transcript chunk")
+    {
+        const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 200, QNetworkReply::NoError, false,
+                                                               chatResponse(QByteArrayLiteral(R"({"version":1,"operations":[]})")), true);
+        REQUIRE(result.isValid());
+        REQUIRE(result.plan.operations.isEmpty());
     }
 }
 

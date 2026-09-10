@@ -39,6 +39,14 @@
 - The fork displays `Firawynix - Kdenlive` while retaining the stable Kdenlive
   application id, upstream attribution, authors, copyright, homepage, and GPL
   license.
+- Long semantic analyses now split transcripts into bounded provider requests.
+  Timeline-fingerprinted transcripts and completed plan fragments are saved
+  locally without credentials, allowing a matching retry or restart to resume
+  after a token limit, timeout, cancellation, or connection failure.
+- The current OpenRouter account has a valid key but no purchased credits. The
+  tested default is `nex-agi/nex-n2.5-mini:free`; a live structured-output probe
+  succeeded on 2026-09-10. Paid Claude access returned HTTP 402 until credits
+  are added.
 - Next task: add more operation types only when each receives a schema, typed
   parser, preview, safe executor, and automated tests.
 

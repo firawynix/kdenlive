@@ -15,7 +15,7 @@ namespace Kdenlive {
 namespace AiEditor {
 
 namespace {
-QJsonObject editPlanSchema()
+QJsonObject editPlanSchema(bool allowEmptyPlan)
 {
     const QJsonObject rangeProperties{
         {QStringLiteral("start_frame"), QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")}, {QStringLiteral("minimum"), 0}}},
@@ -43,15 +43,16 @@ QJsonObject editPlanSchema()
         {QStringLiteral("properties"), muteProperties},
         {QStringLiteral("required"), QJsonArray{QStringLiteral("type"), QStringLiteral("start_frame"), QStringLiteral("end_frame")}}};
     const QJsonObject operation{{QStringLiteral("anyOf"), QJsonArray{retimeOperation, muteOperation}}};
-    return QJsonObject{{QStringLiteral("type"), QStringLiteral("object")},
-                       {QStringLiteral("additionalProperties"), false},
-                       {QStringLiteral("properties"), QJsonObject{{QStringLiteral("version"), QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")},
-                                                                                                          {QStringLiteral("enum"), QJsonArray{1}}}},
-                                                                  {QStringLiteral("operations"), QJsonObject{{QStringLiteral("type"), QStringLiteral("array")},
-                                                                                                             {QStringLiteral("minItems"), 1},
-                                                                                                             {QStringLiteral("maxItems"), 256},
-                                                                                                             {QStringLiteral("items"), operation}}}}},
-                       {QStringLiteral("required"), QJsonArray{QStringLiteral("version"), QStringLiteral("operations")}}};
+    return QJsonObject{
+        {QStringLiteral("type"), QStringLiteral("object")},
+        {QStringLiteral("additionalProperties"), false},
+        {QStringLiteral("properties"),
+         QJsonObject{{QStringLiteral("version"), QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")}, {QStringLiteral("enum"), QJsonArray{1}}}},
+                     {QStringLiteral("operations"), QJsonObject{{QStringLiteral("type"), QStringLiteral("array")},
+                                                                {QStringLiteral("minItems"), allowEmptyPlan ? 0 : 1},
+                                                                {QStringLiteral("maxItems"), 256},
+                                                                {QStringLiteral("items"), operation}}}}},
+        {QStringLiteral("required"), QJsonArray{QStringLiteral("version"), QStringLiteral("operations")}}};
 }
 
 QString systemPrompt()
@@ -68,7 +69,8 @@ QString systemPrompt()
         "the nearest frame, make end_frame exclusive, and use target_duration_frames for the requested final duration. Operations must not overlap. Never "
         "invent edits that the user did not request. Example at 25 FPS: instruction 'mute vacation talk and compress silence over 2 seconds to 0.5 seconds', "
         "transcript '[0-40] vacation plans' and '[110-160] Salesforce work' produces mute_range 0-40 and retime_range 40-110 with "
-        "target_duration_frames=13 and preserve_pitch=true. It does not edit 110-160 or trailing silence, and never emits a no-op retime.");
+        "target_duration_frames=13 and preserve_pitch=true. It does not edit 110-160 or trailing silence, and never emits a no-op retime. If the supplied "
+        "transcript segment contains no requested edit, return version 1 with an empty operations array.");
 }
 
 QString userMessage(const QString &prompt, int timelineFrames, double fps, const QString &transcript)
@@ -143,7 +145,7 @@ QString AiProviderClient::defaultModel(AiProvider provider)
 {
     switch (provider) {
     case AiProvider::OpenRouter:
-        return QStringLiteral("openai/gpt-5-mini");
+        return QStringLiteral("nex-agi/nex-n2.5-mini:free");
     case AiProvider::OpenAI:
         return QStringLiteral("gpt-5-mini");
     case AiProvider::Anthropic:
@@ -174,7 +176,7 @@ BuiltAiRequest AiProviderClient::buildConnectionTestRequest(AiProvider provider,
 }
 
 BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
-                                              double fps, const QString &transcript)
+                                              double fps, const QString &transcript, bool allowEmptyPlan)
 {
     BuiltAiRequest result;
     if (model.trimmed().isEmpty()) {
@@ -195,7 +197,7 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
     }
 
     result.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/json")});
-    const QJsonObject schema = editPlanSchema();
+    const QJsonObject schema = editPlanSchema(allowEmptyPlan);
     const QJsonArray messages{
         QJsonObject{{QStringLiteral("role"), QStringLiteral("system")}, {QStringLiteral("content"), systemPrompt()}},
         QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
@@ -208,7 +210,7 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
         result.url = QUrl(QStringLiteral("https://api.anthropic.com/v1/messages"));
         result.headers.push_back({QByteArrayLiteral("x-api-key"), apiKey});
         result.headers.push_back({QByteArrayLiteral("anthropic-version"), QByteArrayLiteral("2023-06-01")});
-        body.insert(QStringLiteral("max_tokens"), 8192);
+        body.insert(QStringLiteral("max_tokens"), 16384);
         body.insert(QStringLiteral("system"), systemPrompt());
         body.insert(QStringLiteral("messages"), QJsonArray{messages.at(1)});
         body.insert(QStringLiteral("output_config"), QJsonObject{{QStringLiteral("format"), QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")},
@@ -217,6 +219,12 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
         result.url = provider == AiProvider::OpenRouter ? QUrl(QStringLiteral("https://openrouter.ai/api/v1/chat/completions"))
                                                         : QUrl(QStringLiteral("https://api.openai.com/v1/chat/completions"));
         result.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + apiKey});
+        if (provider == AiProvider::OpenRouter) {
+            body.insert(QStringLiteral("max_tokens"), 16384);
+            body.insert(QStringLiteral("provider"), QJsonObject{{QStringLiteral("require_parameters"), true}});
+        } else {
+            body.insert(QStringLiteral("max_completion_tokens"), 16384);
+        }
         body.insert(QStringLiteral("messages"), messages);
         body.insert(QStringLiteral("response_format"),
                     QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")},
@@ -228,7 +236,7 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
     return result;
 }
 
-AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider, const QByteArray &payload)
+AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider, const QByteArray &payload, bool allowEmptyPlan)
 {
     AiProviderResponse result;
     QJsonParseError jsonError;
@@ -240,7 +248,9 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
 
     const QJsonObject root = document.object();
     QString content;
+    QString finishReason;
     if (provider == AiProvider::Anthropic) {
+        finishReason = root.value(QStringLiteral("stop_reason")).toString();
         const QJsonArray blocks = root.value(QStringLiteral("content")).toArray();
         for (const QJsonValue &blockValue : blocks) {
             const QJsonObject block = blockValue.toObject();
@@ -252,16 +262,21 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     } else {
         const QJsonArray choices = root.value(QStringLiteral("choices")).toArray();
         if (!choices.isEmpty()) {
-            content = choices.at(0).toObject().value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
+            const QJsonObject choice = choices.at(0).toObject();
+            content = choice.value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
+            finishReason = choice.value(QStringLiteral("finish_reason")).toString();
         }
     }
     if (content.isEmpty()) {
-        result.error = QStringLiteral("The AI provider response did not contain an edit plan.");
+        result.error = finishReason == QLatin1String("length") || finishReason == QLatin1String("max_tokens")
+                           ? QStringLiteral("The AI model reached its output token limit before returning an edit plan.")
+                       : finishReason.isEmpty() ? QStringLiteral("The AI provider response did not contain an edit plan.")
+                                                : QStringLiteral("The AI provider returned no edit plan (finish reason: %1).").arg(finishReason);
         return result;
     }
 
     result.planJson = content.toUtf8();
-    const auto parsed = parseEditPlan(result.planJson);
+    const auto parsed = parseEditPlan(result.planJson, allowEmptyPlan);
     if (!parsed.isValid()) {
         result.planJson.clear();
         result.error = QStringLiteral("The AI provider returned an unsafe edit plan: %1").arg(parsed.error);
@@ -272,7 +287,7 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
 }
 
 AiProviderResponse AiProviderClient::completeResponse(AiProvider provider, int httpStatus, QNetworkReply::NetworkError networkError, bool wasCancelled,
-                                                      const QByteArray &payload)
+                                                      const QByteArray &payload, bool allowEmptyPlan)
 {
     AiProviderResponse result;
     if (wasCancelled || networkError == QNetworkReply::OperationCanceledError) {
@@ -298,7 +313,7 @@ AiProviderResponse AiProviderClient::completeResponse(AiProvider provider, int h
         result.error = QStringLiteral("The AI provider returned an invalid HTTP response.");
         return result;
     }
-    return parseSuccessfulResponse(provider, payload);
+    return parseSuccessfulResponse(provider, payload, allowEmptyPlan);
 }
 
 bool AiProviderClient::isBusy() const
@@ -307,18 +322,19 @@ bool AiProviderClient::isBusy() const
 }
 
 void AiProviderClient::requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
-                                   const QString &transcript)
+                                   const QString &transcript, bool allowEmptyPlan)
 {
     if (isBusy()) {
         Q_EMIT errorOccurred(QStringLiteral("An AI request is already running."));
         return;
     }
-    const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps, transcript);
+    const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps, transcript, allowEmptyPlan);
     if (!built.isValid()) {
         Q_EMIT errorOccurred(built.error);
         return;
     }
 
+    m_allowEmptyPlan = allowEmptyPlan;
     startRequest(built, provider, RequestKind::EditPlan);
 }
 
@@ -342,7 +358,7 @@ void AiProviderClient::startRequest(const BuiltAiRequest &built, AiProvider prov
     for (const auto &header : built.headers) {
         request.setRawHeader(header.first, header.second);
     }
-    request.setTransferTimeout(60000);
+    request.setTransferTimeout(180000);
     m_activeProvider = provider;
     m_requestKind = kind;
     m_cancelRequested = false;
@@ -372,7 +388,7 @@ void AiProviderClient::startRequest(const BuiltAiRequest &built, AiProvider prov
             }
             return;
         }
-        const auto result = completeResponse(m_activeProvider, status, networkError, m_cancelRequested, payload);
+        const auto result = completeResponse(m_activeProvider, status, networkError, m_cancelRequested, payload, m_allowEmptyPlan);
         if (result.cancelled) {
             Q_EMIT requestCancelled();
         } else if (!result.isValid()) {

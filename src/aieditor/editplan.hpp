@@ -54,7 +54,7 @@ struct EditPlanParseResult
     bool isValid() const;
 };
 
-EditPlanParseResult parseEditPlan(const QByteArray &json);
+EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty = false);
 
 } // namespace AiEditor
 } // namespace Kdenlive

@@ -34,7 +34,7 @@ public:
 
 Q_SIGNALS:
     void statusChanged(const QString &message);
-    void transcriptReady(const QString &transcript);
+    void transcriptReady(const QString &transcript, const QString &timelineFingerprint);
     void errorOccurred(const QString &message);
     void cancelled();
     void busyChanged(bool busy);
@@ -53,6 +53,7 @@ private:
     std::unique_ptr<QTemporaryDir> m_tempDir;
     QString m_audioPath;
     QString m_srtPath;
+    QString m_timelineFingerprint;
     double m_fps{0.0};
     bool m_cancelRequested{false};
     Phase m_phase{Phase::Idle};

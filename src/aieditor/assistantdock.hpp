@@ -6,6 +6,7 @@
 #pragma once
 
 #include "aiproviderclient.hpp"
+#include "aisessionstore.hpp"
 #include "editplan.hpp"
 
 #include <QWidget>
@@ -42,7 +43,11 @@ private:
     void testCredential();
     void updatePerformanceSummary();
     void generatePlan();
-    void requestProviderPlan(const QString &transcript = QString());
+    void requestProviderPlan(const QString &transcript = QString(), const QString &timelineFingerprint = QString());
+    void requestNextTranscriptChunk();
+    void handleProviderPlan(const QByteArray &planJson);
+    void finishChunkedPlan();
+    void resetPlanPreview();
     void showPlan(const QByteArray &planJson);
     void applyPlan();
     void discardPlan();
@@ -76,6 +81,9 @@ private:
     EditPlan m_plan;
     bool m_hasPlan{false};
     QString m_pendingPrompt;
+    QVector<TranscriptChunk> m_transcriptChunks;
+    AiSessionCheckpoint m_checkpoint;
+    bool m_chunkedRequest{false};
 };
 
 } // namespace AiEditor

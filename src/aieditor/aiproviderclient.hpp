@@ -54,14 +54,14 @@ public:
     static QString defaultModel(AiProvider provider);
     static BuiltAiRequest buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey);
     static BuiltAiRequest buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
-                                       double fps, const QString &transcript = QString());
-    static AiProviderResponse parseSuccessfulResponse(AiProvider provider, const QByteArray &payload);
+                                       double fps, const QString &transcript = QString(), bool allowEmptyPlan = false);
+    static AiProviderResponse parseSuccessfulResponse(AiProvider provider, const QByteArray &payload, bool allowEmptyPlan = false);
     static AiProviderResponse completeResponse(AiProvider provider, int httpStatus, QNetworkReply::NetworkError networkError, bool wasCancelled,
-                                               const QByteArray &payload);
+                                               const QByteArray &payload, bool allowEmptyPlan = false);
 
     bool isBusy() const;
     void requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
-                     const QString &transcript = QString());
+                     const QString &transcript = QString(), bool allowEmptyPlan = false);
     void testConnection(AiProvider provider, const QByteArray &apiKey);
     void cancel();
 
@@ -82,6 +82,7 @@ private:
     AiProvider m_activeProvider{AiProvider::OpenRouter};
     RequestKind m_requestKind{RequestKind::EditPlan};
     bool m_cancelRequested{false};
+    bool m_allowEmptyPlan{false};
 };
 
 } // namespace AiEditor

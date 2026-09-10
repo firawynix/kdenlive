@@ -17,3 +17,6 @@
   provider connection testing and removal.
 - [x] T9 (ASC-12): Apply fork branding while retaining Kdenlive compatibility
   and legal attribution.
+- [x] T10 (ASC-13): Add bounded transcript segmentation, atomic transcript and
+  provider-fragment checkpoints, safe resume, provider token ceilings, and
+  focused regression tests.

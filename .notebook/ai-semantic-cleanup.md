@@ -12,6 +12,10 @@
   operations.
 - `EditPlanExecutor` applies them in descending start-frame order and composes
   one undo action.
+- `AiSessionStore` fingerprints the serialized timeline and caches the local
+  transcript for seven days. Provider work is divided into bounded segments;
+  every completed segment is saved atomically, without credentials, and a
+  matching retry resumes from the next segment.
 
 ## Windows setup
 

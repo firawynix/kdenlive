@@ -5,6 +5,7 @@
 
 #include "localtimelinetranscriber.hpp"
 
+#include "aisessionstore.hpp"
 #include "kdenlivesettings.h"
 #include "pythoninterfaces/speechtotextwhisper.h"
 #include "timeline2/model/timelineitemmodel.hpp"
@@ -89,6 +90,23 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
         reset();
         Q_EMIT busyChanged(false);
         Q_EMIT errorOccurred(i18n("The current timeline audio could not be prepared for transcription."));
+        return;
+    }
+    QFile sceneFile(scenePath);
+    if (!sceneFile.open(QIODevice::ReadOnly)) {
+        reset();
+        Q_EMIT busyChanged(false);
+        Q_EMIT errorOccurred(i18n("The current timeline description could not be read for a safe checkpoint."));
+        return;
+    }
+    m_timelineFingerprint = AiSessionStore::timelineFingerprint(sceneFile.readAll(), fps, model, KdenliveSettings::whisperLanguage(), m_tempDir->path());
+    const QString cachedTranscript = AiSessionStore::loadTranscript(m_timelineFingerprint);
+    if (!cachedTranscript.isEmpty()) {
+        const QString fingerprint = m_timelineFingerprint;
+        reset();
+        Q_EMIT busyChanged(false);
+        Q_EMIT statusChanged(i18n("Saved local transcript restored. Continuing without running Whisper again…"));
+        Q_EMIT transcriptReady(cachedTranscript, fingerprint);
         return;
     }
     m_phase = Phase::ExportAudio;
@@ -207,12 +225,16 @@ void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus 
         return;
     }
     const QString transcript = parseSrt(file.readAll(), m_fps);
+    const QString fingerprint = m_timelineFingerprint;
+    if (!transcript.isEmpty()) {
+        AiSessionStore::saveTranscript(fingerprint, transcript);
+    }
     reset();
     Q_EMIT busyChanged(false);
     if (transcript.isEmpty()) {
         Q_EMIT errorOccurred(i18n("No dialogue was detected in the current timeline."));
     } else {
-        Q_EMIT transcriptReady(transcript);
+        Q_EMIT transcriptReady(transcript, fingerprint);
     }
 }
 
@@ -246,6 +268,7 @@ void LocalTimelineTranscriber::reset()
     m_phase = Phase::Idle;
     m_audioPath.clear();
     m_srtPath.clear();
+    m_timelineFingerprint.clear();
     m_fps = 0.0;
     m_tempDir.reset();
 }

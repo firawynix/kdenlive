@@ -33,6 +33,10 @@ the selected AI provider.
 - ASC-12: Identify the fork as `Firawynix - Kdenlive` without changing the
   stable application id or removing upstream authorship, copyright, homepage,
   and GPL licensing.
+- ASC-13: Split long transcripts into bounded provider requests and save local,
+  key-free checkpoints after transcription and after every completed request.
+  A retry or application restart must resume the matching timeline analysis
+  without repeating completed work.
 
 ## Acceptance criteria
 
@@ -49,3 +53,8 @@ the selected AI provider.
   configuration files, project files, logs, or repository changes.
 - The application window/About data display the fork name and upstream legal
   attribution together.
+- A provider token-limit, timeout, cancellation, or application restart leaves
+  the timeline unchanged and allows the matching analysis to resume from its
+  latest completed checkpoint.
+- Checkpoint files contain transcript text and validated plan fragments, but
+  never API keys. Cached transcripts expire after seven days.

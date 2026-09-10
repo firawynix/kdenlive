@@ -97,7 +97,7 @@ bool EditPlanParseResult::isValid() const
     return error.isEmpty();
 }
 
-EditPlanParseResult parseEditPlan(const QByteArray &json)
+EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty)
 {
     EditPlanParseResult result;
     if (json.isEmpty()) {
@@ -135,8 +135,9 @@ EditPlanParseResult parseEditPlan(const QByteArray &json)
     }
 
     const QJsonArray operations = operationsValue.toArray();
-    if (operations.isEmpty() || operations.size() > MaxOperationCount) {
-        result.error = QStringLiteral("Edit plan must contain between 1 and 256 operations.");
+    if ((!allowEmpty && operations.isEmpty()) || operations.size() > MaxOperationCount) {
+        result.error = allowEmpty ? QStringLiteral("Edit plan must contain at most 256 operations.")
+                                  : QStringLiteral("Edit plan must contain between 1 and 256 operations.");
         return result;
     }
 

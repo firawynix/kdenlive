@@ -115,6 +115,19 @@ Portuguese language, CPU processing, and FP16 disabled.
   timeline frame count are sent.
 - With local audio analysis, media stays on the computer. Only the timestamped
   transcript text is additionally sent to the selected provider.
+- Long transcripts are sent in bounded segments. After local transcription and
+  after each provider segment, the assistant saves a local checkpoint that
+  contains no API key. If a request reaches a token limit, times out, is
+  cancelled, or Kdenlive closes, use **Generate plan** again with the same
+  timeline, prompt, provider, and model to continue from the next unfinished
+  segment.
+- Matching local transcripts are reused for up to seven days. Changing the
+  timeline content, FPS, Whisper model, or transcription language creates a new
+  fingerprint and prevents stale transcript reuse.
+- The default OpenRouter model is `nex-agi/nex-n2.5-mini:free`, which was
+  verified with the required structured-output schema on September 10, 2026.
+  Users with OpenRouter credits can select a paid model such as
+  `anthropic/claude-sonnet-4.6` instead.
 - Provider responses are untrusted. A versioned, closed parser rejects invalid
   or unsupported plans before any timeline API is called.
 - Timeline preflight rejects cases that could partially mutate or desynchronize

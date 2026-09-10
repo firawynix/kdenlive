@@ -20,14 +20,19 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSet>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTime>
 #include <QVBoxLayout>
+#include <utility>
 
 namespace Kdenlive {
 namespace AiEditor {
@@ -71,7 +76,8 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     layout->addLayout(credentialButtons);
 
     auto *privacy = new QLabel(
-        i18n("Privacy: media files are never uploaded. When audio analysis is enabled, Whisper runs locally and only the timestamped transcript is sent."),
+        i18n("Privacy: media files are never uploaded. Whisper runs locally; only the timestamped transcript is sent. Local resume checkpoints expire after "
+             "seven days and never contain API keys."),
         this);
     privacy->setWordWrap(true);
     layout->addWidget(privacy);
@@ -196,18 +202,23 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_apply, &QPushButton::clicked, this, &AssistantDock::applyPlan);
     connect(m_discard, &QPushButton::clicked, this, &AssistantDock::discardPlan);
     connect(m_client, &AiProviderClient::busyChanged, this, &AssistantDock::setBusy);
-    connect(m_client, &AiProviderClient::planReady, this, &AssistantDock::showPlan);
-    connect(m_client, &AiProviderClient::errorOccurred, this, [this](const QString &message) { setStatus(message, true); });
-    connect(m_client, &AiProviderClient::requestCancelled, this, [this]() { setStatus(i18n("Request cancelled.")); });
+    connect(m_client, &AiProviderClient::planReady, this, &AssistantDock::handleProviderPlan);
+    connect(m_client, &AiProviderClient::errorOccurred, this, [this](const QString &message) {
+        setStatus(m_chunkedRequest ? i18n("%1 Progress is saved locally. Choose Generate plan to resume.", message) : message, true);
+    });
+    connect(m_client, &AiProviderClient::requestCancelled, this, [this]() {
+        setStatus(m_chunkedRequest ? i18n("Request cancelled. Completed segments are saved locally; choose Generate plan to resume.")
+                                   : i18n("Request cancelled."));
+    });
 
     m_transcriber = new LocalTimelineTranscriber(this);
     connect(m_transcriber, &LocalTimelineTranscriber::busyChanged, this, &AssistantDock::setBusy);
     connect(m_transcriber, &LocalTimelineTranscriber::statusChanged, this, [this](const QString &message) { setStatus(message); });
     connect(m_transcriber, &LocalTimelineTranscriber::errorOccurred, this, [this](const QString &message) { setStatus(message, true); });
     connect(m_transcriber, &LocalTimelineTranscriber::cancelled, this, [this]() { setStatus(i18n("Local transcription cancelled.")); });
-    connect(m_transcriber, &LocalTimelineTranscriber::transcriptReady, this, [this](const QString &transcript) {
+    connect(m_transcriber, &LocalTimelineTranscriber::transcriptReady, this, [this](const QString &transcript, const QString &timelineFingerprint) {
         setStatus(i18n("Local transcript ready. Requesting the edit plan…"));
-        requestProviderPlan(transcript);
+        requestProviderPlan(transcript, timelineFingerprint);
     });
 
     updateProvider();
@@ -317,7 +328,7 @@ void AssistantDock::generatePlan()
         setStatus(i18n("Open a project timeline before requesting an edit."), true);
         return;
     }
-    discardPlan();
+    resetPlanPreview();
     m_pendingPrompt = m_prompt->toPlainText();
     if (m_analyzeAudio->isChecked()) {
         m_transcriber->start(timelineWidget->model(), pCore->getCurrentFps());
@@ -326,15 +337,138 @@ void AssistantDock::generatePlan()
     }
 }
 
-void AssistantDock::requestProviderPlan(const QString &transcript)
+void AssistantDock::requestProviderPlan(const QString &transcript, const QString &timelineFingerprint)
 {
     TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
     if (!timelineWidget || !timelineWidget->model()) {
         setStatus(i18n("The active timeline is no longer available."), true);
         return;
     }
-    m_client->requestPlan(selectedProvider(), m_model->text(), selectedApiKey(), m_pendingPrompt, timelineWidget->model()->duration(), pCore->getCurrentFps(),
-                          transcript);
+    const int timelineFrames = timelineWidget->model()->duration();
+    const double fps = pCore->getCurrentFps();
+    if (transcript.isEmpty()) {
+        m_chunkedRequest = false;
+        m_client->requestPlan(selectedProvider(), m_model->text(), selectedApiKey(), m_pendingPrompt, timelineFrames, fps);
+        return;
+    }
+
+    m_transcriptChunks = AiSessionStore::splitTranscript(transcript, timelineFrames);
+    if (m_transcriptChunks.isEmpty()) {
+        setStatus(i18n("The saved transcript contains no usable dialogue."), true);
+        return;
+    }
+    const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), m_model->text(), m_pendingPrompt, timelineFrames, fps);
+    const auto saved = AiSessionStore::load(id);
+    if (saved && saved->timelineFingerprint == timelineFingerprint && saved->provider == selectedProvider() && saved->model == m_model->text().trimmed() &&
+        saved->prompt == m_pendingPrompt.trimmed() && saved->timelineFrames == timelineFrames && qFuzzyCompare(saved->fps, fps) &&
+        saved->nextChunk <= m_transcriptChunks.size()) {
+        m_checkpoint = *saved;
+        setStatus(i18n("Saved analysis restored at segment %1 of %2.", m_checkpoint.nextChunk + 1, m_transcriptChunks.size()));
+    } else {
+        m_checkpoint = {};
+        m_checkpoint.id = id;
+        m_checkpoint.timelineFingerprint = timelineFingerprint;
+        m_checkpoint.provider = selectedProvider();
+        m_checkpoint.model = m_model->text().trimmed();
+        m_checkpoint.prompt = m_pendingPrompt.trimmed();
+        m_checkpoint.timelineFrames = timelineFrames;
+        m_checkpoint.fps = fps;
+        m_checkpoint.transcript = transcript;
+        QString error;
+        if (!AiSessionStore::save(m_checkpoint, &error)) {
+            setStatus(error, true);
+            return;
+        }
+    }
+    m_chunkedRequest = true;
+    requestNextTranscriptChunk();
+}
+
+void AssistantDock::requestNextTranscriptChunk()
+{
+    if (!m_chunkedRequest || m_checkpoint.nextChunk >= m_transcriptChunks.size()) {
+        finishChunkedPlan();
+        return;
+    }
+    const int chunkNumber = m_checkpoint.nextChunk + 1;
+    const TranscriptChunk &chunk = m_transcriptChunks.at(m_checkpoint.nextChunk);
+    const QString chunkPrompt =
+        m_checkpoint.prompt +
+        QStringLiteral("\n\nThis is transcript segment %1 of %2. Return only operations whose start_frame is greater than or equal to %3 and less than %4. "
+                       "Lines outside that owned frame interval are context only. It is valid to return an empty operations array.")
+            .arg(chunkNumber)
+            .arg(m_transcriptChunks.size())
+            .arg(chunk.ownedStartFrame)
+            .arg(chunk.ownedEndFrame);
+    setStatus(i18n("Requesting AI segment %1 of %2. Each completed segment is saved locally.", chunkNumber, m_transcriptChunks.size()));
+    m_client->requestPlan(m_checkpoint.provider, m_checkpoint.model, selectedApiKey(), chunkPrompt, m_checkpoint.timelineFrames, m_checkpoint.fps, chunk.text,
+                          true);
+}
+
+void AssistantDock::handleProviderPlan(const QByteArray &planJson)
+{
+    if (!m_chunkedRequest) {
+        showPlan(planJson);
+        return;
+    }
+    const auto parsed = parseEditPlan(planJson, true);
+    if (!parsed.isValid()) {
+        setStatus(i18n("The AI segment was invalid: %1 Progress remains saved.", parsed.error), true);
+        return;
+    }
+    m_checkpoint.planFragments << QString::fromUtf8(planJson);
+    ++m_checkpoint.nextChunk;
+    QString error;
+    if (!AiSessionStore::save(m_checkpoint, &error)) {
+        setStatus(error, true);
+        return;
+    }
+    requestNextTranscriptChunk();
+}
+
+void AssistantDock::finishChunkedPlan()
+{
+    if (!m_chunkedRequest) {
+        return;
+    }
+    QJsonArray operations;
+    QSet<QByteArray> seen;
+    for (const QString &fragment : std::as_const(m_checkpoint.planFragments)) {
+        const QJsonArray fragmentOperations = QJsonDocument::fromJson(fragment.toUtf8()).object().value(QStringLiteral("operations")).toArray();
+        for (const QJsonValue &operation : fragmentOperations) {
+            const QByteArray canonical = QJsonDocument(operation.toObject()).toJson(QJsonDocument::Compact);
+            if (!seen.contains(canonical)) {
+                seen.insert(canonical);
+                operations.append(operation);
+            }
+        }
+    }
+    const QByteArray completePlan =
+        QJsonDocument(QJsonObject{{QStringLiteral("version"), 1}, {QStringLiteral("operations"), operations}}).toJson(QJsonDocument::Compact);
+    const auto parsed = parseEditPlan(completePlan, true);
+    if (!parsed.isValid()) {
+        setStatus(i18n("The combined AI plan is unsafe: %1 Progress remains saved.", parsed.error), true);
+        return;
+    }
+    m_chunkedRequest = false;
+    if (parsed.plan.operations.isEmpty()) {
+        AiSessionStore::remove(m_checkpoint.id);
+        m_checkpoint = {};
+        m_transcriptChunks.clear();
+        resetPlanPreview();
+        setStatus(i18n("Analysis completed. No matching edits were found in the transcript."));
+        return;
+    }
+    showPlan(completePlan);
+}
+
+void AssistantDock::resetPlanPreview()
+{
+    m_hasPlan = false;
+    m_plan = {};
+    m_preview->clear();
+    m_apply->setEnabled(false);
+    m_discard->setEnabled(false);
 }
 
 void AssistantDock::showPlan(const QByteArray &planJson)
@@ -397,17 +531,20 @@ void AssistantDock::applyPlan()
     m_apply->setEnabled(false);
     m_discard->setEnabled(false);
     m_hasPlan = false;
+    AiSessionStore::remove(m_checkpoint.id);
+    m_checkpoint = {};
+    m_transcriptChunks.clear();
     setStatus(i18n("Edit applied. Use Undo once to restore the previous timeline."));
 }
 
 void AssistantDock::discardPlan()
 {
-    m_hasPlan = false;
-    m_plan = {};
+    AiSessionStore::remove(m_checkpoint.id);
+    m_checkpoint = {};
+    m_transcriptChunks.clear();
+    m_chunkedRequest = false;
     m_pendingPrompt.clear();
-    m_preview->clear();
-    m_apply->setEnabled(false);
-    m_discard->setEnabled(false);
+    resetPlanPreview();
     if (!m_client->isBusy()) {
         setStatus(QString());
     }
