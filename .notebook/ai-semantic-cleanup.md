@@ -27,3 +27,17 @@
   locked tracks, and clip boundaries.
 - Do not add raw provider actions: each operation requires schema, parser,
   preview, preflight, executor, and tests.
+
+## Next improvements
+
+1. Add a configurable 10–100% performance budget (80% default) for local audio
+   export and Whisper, with safe CPU-thread, GPU/device, and memory/cache
+   controls. Treat the percentage as best effort rather than an exact hardware
+   utilization guarantee.
+2. Add phase-aware progress for every long-running local operation. The
+   assistant must show the current phase, percentage, elapsed time, and rolling
+   estimated time remaining for audio preparation and Whisper transcription.
+   Provider requests must show elapsed time and an indeterminate state when the
+   provider cannot report measurable progress.
+3. Keep Cancel available throughout every phase and guarantee that cancellation
+   leaves the timeline unchanged and removes temporary files.

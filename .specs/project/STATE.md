@@ -33,6 +33,11 @@
 
 ## Deferred Ideas
 
+- Configurable 10–100% performance budget, defaulting to 80%, for AI-local
+  workloads with CPU-thread, GPU/device, and memory/cache controls.
+- Progress UI for machine-intensive work: separate audio-export,
+  transcription, and provider phases; show percentage where measurable,
+  elapsed time, and a rolling ETA without blocking cancellation.
 - Vision analysis of thumbnails or proxy media.
 - MCP/REST control of a running Kdenlive instance.
 
