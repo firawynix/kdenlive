@@ -9,9 +9,9 @@ presses **Apply**.
 
 | Provider | Environment variable | Default model (editable in the dock) |
 | --- | --- | --- |
-| OpenRouter | `OPENROUTER_API_KEY` | `openai/gpt-4o-mini` |
-| OpenAI | `OPENAI_API_KEY` | `gpt-4o-mini` |
-| Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-4-5` |
+| OpenRouter | `OPENROUTER_API_KEY` | `openai/gpt-5-mini` |
+| OpenAI | `OPENAI_API_KEY` | `gpt-5-mini` |
+| Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` |
 
 Model availability changes over time. Enter another model identifier in the
 dock if the provider no longer offers the default.
@@ -77,4 +77,3 @@ ctest --test-dir C:\_\3377f5a\build -R "^(aieditorplannertest|aiproviderclientte
 
 The acceptance test uses frames 250–3250 at 25 fps (120 seconds) and targets
 1000 frames (40 seconds), verifying the 3x multiplier and an 80-second ripple.
-

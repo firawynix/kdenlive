@@ -122,11 +122,11 @@ QString AiProviderClient::defaultModel(AiProvider provider)
 {
     switch (provider) {
     case AiProvider::OpenRouter:
-        return QStringLiteral("openai/gpt-4o-mini");
+        return QStringLiteral("openai/gpt-5-mini");
     case AiProvider::OpenAI:
-        return QStringLiteral("gpt-4o-mini");
+        return QStringLiteral("gpt-5-mini");
     case AiProvider::Anthropic:
-        return QStringLiteral("claude-sonnet-4-5");
+        return QStringLiteral("claude-sonnet-5");
     }
     return {};
 }
