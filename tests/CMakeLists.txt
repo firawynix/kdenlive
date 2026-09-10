@@ -7,6 +7,7 @@ configure_file(tests_definitions.h.in tests_definitions.h)
 kde_enable_exceptions()
 
 set(KdenliveTest_SOURCES
+    aieditorplannertest.cpp
     avcurvetest.cpp
     audiolevelstasktest.cpp
     cachetest.cpp
