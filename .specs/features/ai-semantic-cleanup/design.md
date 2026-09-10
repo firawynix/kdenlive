@@ -25,3 +25,18 @@
 - Each executor performs preflight checks before mutation.
 - Batch execution rolls back on the first failure.
 - Transcript text is escaped by JSON serialization and media is never attached.
+
+## Runtime controls and credentials
+
+- `ResourceBudget` converts the selected percentage into bounded CPU and memory
+  values. The transcriber applies environment-level thread limits plus native
+  Windows affinity/job limits to each child process; CUDA is never offered for
+  the detected AMD-only system.
+- `SecureCredentialStore` uses provider-specific Windows Credential Manager
+  generic credentials. `AssistantDock` prefers that store and falls back to the
+  existing environment variable.
+- Connection tests use read-only authenticated API endpoints and never send a
+  model prompt or expose a key in a URL, status message, or log.
+- Branding changes only user-facing identity. The `kdenlive` application id and
+  upstream project/legal metadata remain intact for compatibility and proper
+  attribution.

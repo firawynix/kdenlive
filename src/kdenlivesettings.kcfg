@@ -1670,6 +1670,23 @@
            <default>whisper</default>
        </entry>
    </group>
+   <group name="AI Editing Assistant">
+       <entry name="aiPerformancePercent" type="Int">
+           <label>Best-effort resource budget for local AI editing work</label>
+           <default>80</default>
+           <min>10</min>
+           <max>100</max>
+       </entry>
+       <entry name="aiCpuThreads" type="Int">
+           <label>CPU thread override for local AI editing work, or zero for automatic</label>
+           <default>0</default>
+           <min>0</min>
+       </entry>
+       <entry name="aiProcessingDevice" type="String">
+           <label>Processing device for local AI editing work</label>
+           <default>auto</default>
+       </entry>
+   </group>
     <group name="Media Browser">
     <entry name="mediaIconSize" type="Int">
       <label>Default size for media browser icons.</label>

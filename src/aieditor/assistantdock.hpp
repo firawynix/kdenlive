@@ -17,6 +17,8 @@ class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
 class QPushButton;
+class QSlider;
+class QSpinBox;
 
 namespace Kdenlive {
 namespace AiEditor {
@@ -35,6 +37,10 @@ private:
     QByteArray selectedApiKey() const;
     void updateProvider();
     void updateCredentialStatus();
+    void saveCredential();
+    void removeCredential();
+    void testCredential();
+    void updatePerformanceSummary();
     void generatePlan();
     void requestProviderPlan(const QString &transcript = QString());
     void showPlan(const QByteArray &planJson);
@@ -50,6 +56,14 @@ private:
     QComboBox *m_provider{nullptr};
     QLineEdit *m_model{nullptr};
     QLabel *m_keyStatus{nullptr};
+    QLineEdit *m_keyInput{nullptr};
+    QPushButton *m_saveKey{nullptr};
+    QPushButton *m_testKey{nullptr};
+    QPushButton *m_removeKey{nullptr};
+    QSlider *m_performance{nullptr};
+    QLabel *m_performanceSummary{nullptr};
+    QSpinBox *m_cpuThreads{nullptr};
+    QComboBox *m_processingDevice{nullptr};
     QComboBox *m_preset{nullptr};
     QCheckBox *m_analyzeAudio{nullptr};
     QPlainTextEdit *m_prompt{nullptr};

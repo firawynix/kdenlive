@@ -215,9 +215,9 @@ if (APPLE)
 # Apple app package
 set_target_properties(kdenlive PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/../data/Info.plist)
 set_target_properties(kdenlive PROPERTIES
-    MACOSX_BUNDLE_DISPLAY_NAME "Kdenlive"
-    MACOSX_BUNDLE_BUNDLE_NAME "Kdenlive"
-    MACOSX_BUNDLE_LONG_VERSION_STRING "Kdenlive ${KDENLIVE_VERSION}"
+    MACOSX_BUNDLE_DISPLAY_NAME "Firawynix - Kdenlive"
+    MACOSX_BUNDLE_BUNDLE_NAME "Firawynix - Kdenlive"
+    MACOSX_BUNDLE_LONG_VERSION_STRING "Firawynix - Kdenlive ${KDENLIVE_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${RELEASE_SERVICE_VERSION_MAJOR}.${RELEASE_SERVICE_VERSION_MINOR}"
     MACOSX_BUNDLE_BUNDLE_VERSION "${KDENLIVE_VERSION}"
     MACOSX_BUNDLE_GUI_IDENTIFIER "org.kde.Kdenlive"
@@ -299,7 +299,7 @@ target_link_libraries(kdenliveLib PUBLIC KDAB::kddockwidgets)
 target_link_libraries(kdenliveLib PUBLIC FFmpeg::FFmpeg)
 
 if(WIN32)
-    target_link_libraries(kdenliveLib PUBLIC d3d11 d3dcompiler)
+    target_link_libraries(kdenliveLib PUBLIC d3d11 d3dcompiler advapi32)
 endif()
 
 if(USE_DBUS)

@@ -26,6 +26,40 @@ setx OPENROUTER_API_KEY "your-key-here"
 Use `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` instead for the direct providers.
 Never commit a key to this repository or put it in a Kdenlive project.
 
+The assistant also accepts a key directly in the dock. **Save securely** stores
+it in Windows Credential Manager under a provider-specific target. The input is
+masked, the secret is never copied into Kdenlive settings, projects, logs, or
+the repository, and **Remove saved key** deletes only that secure-store entry.
+Environment variables remain a compatible fallback. **Test connection** uses a
+read-only authenticated provider endpoint and does not request a model
+completion.
+
+## Performance budget
+
+The **Performance** section has a 10–100% best-effort resource budget and
+defaults to 80%. It determines the automatic CPU thread count and memory ceiling
+for the local audio-export and Whisper child processes. An advanced CPU-thread
+override is available and zero means automatic. Settings persist between runs.
+
+On Windows the selected CPU count is enforced with process affinity and the
+memory ceiling with a child-process job object where Windows permits it. Whisper
+also receives PyTorch/OpenMP thread limits; CUDA runs receive a per-process GPU
+memory fraction. This is a safe resource budget, not a promise that CPU, GPU,
+and RAM will all remain exactly at the selected percentage.
+
+This workstation has an AMD Radeon RX 9060 XT. The installed OpenAI Whisper
+PyTorch runtime is CPU-only and does not support that GPU on Windows, so the UI
+honestly exposes CPU processing. NVIDIA CUDA is offered only when compatible
+hardware is detected.
+
+## Fork identity
+
+The user-facing product name is **Firawynix - Kdenlive**. The stable internal
+application identifier remains `kdenlive` so existing settings, projects, file
+associations, and plugins continue working. The About data clearly identifies
+this as an independently maintained fork and preserves Kdenlive attribution,
+copyright notices, homepage, authors, and GPL licensing.
+
 ## Ready prompts
 
 The **Ready prompt** selector fills the instruction field and leaves it
@@ -106,7 +140,7 @@ of Kdenlive internals.
 From the KDE Craft environment, run:
 
 ```powershell
-ctest --test-dir C:\_\3377f5a\build -R "^(aieditorplannertest|aiproviderclienttest|retimerangeexecutortest|aieditorsemanticexecutortest)$" --output-on-failure
+ctest --test-dir C:\_\3377f5a\build -R "^(aieditorconfigurationtest|aieditorplannertest|aiproviderclienttest|retimerangeexecutortest|aieditorsemanticexecutortest)$" --output-on-failure
 ```
 
 The acceptance test uses frames 250–3250 at 25 fps (120 seconds) and targets

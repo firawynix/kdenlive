@@ -14,6 +14,26 @@ from whisper.utils import (
     get_writer
 )
 
+
+def apply_resource_budget(device):
+    """Apply the optional budget supplied by the AI Editing Assistant."""
+    threads = os.getenv("KDENLIVE_AI_THREADS", "")
+    if threads:
+        try:
+            torch.set_num_threads(max(1, int(threads)))
+            torch.set_num_interop_threads(max(1, min(4, int(threads))))
+        except (RuntimeError, ValueError):
+            pass
+    if device != "cpu" and torch.cuda.is_available():
+        fraction = os.getenv("KDENLIVE_AI_MEMORY_FRACTION", "")
+        if fraction:
+            try:
+                torch.cuda.set_per_process_memory_fraction(
+                    min(1.0, max(0.1, float(fraction))), device
+                )
+            except (RuntimeError, ValueError):
+                pass
+
 # Call this script with the following arguments
 # 1. source av file
 # 2. model name (tiny, base, small, medium, large)
@@ -44,6 +64,8 @@ def extract_zone(source, outfile, in_point, out_point, ffmpeg_path):
 
 
 def run_whisper(source, model, device="cpu", task="transcribe", extraparams=""):
+
+    apply_resource_budget(device)
 
     # whisper.load_model checks the model's SHA on each run, so directly load the model
     #model = whisper.load_model(model, device)

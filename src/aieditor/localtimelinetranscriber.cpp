@@ -12,6 +12,7 @@
 #include <KLocalizedString>
 #include <QFile>
 #include <QFileInfo>
+#include <QProcessEnvironment>
 #include <QRegularExpression>
 #include <QTemporaryDir>
 #include <QTextStream>
@@ -41,6 +42,7 @@ LocalTimelineTranscriber::~LocalTimelineTranscriber()
         m_process->kill();
         m_process->waitForFinished(3000);
     }
+    releaseNativeBudget();
 }
 
 bool LocalTimelineTranscriber::isBusy() const
@@ -76,6 +78,7 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
     Q_EMIT busyChanged(true);
     m_cancelRequested = false;
     m_fps = fps;
+    m_budget = ResourceBudget::fromSettings();
     const QString scenePath = m_tempDir->filePath(QStringLiteral("timeline.mlt"));
     m_audioPath = m_tempDir->filePath(QStringLiteral("timeline.wav"));
     m_srtPath = m_tempDir->filePath(QStringLiteral("timeline.srt"));
@@ -89,14 +92,17 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
         return;
     }
     m_phase = Phase::ExportAudio;
+    configureProcessEnvironment();
     m_process->start(KdenliveSettings::meltpath(),
                      {QStringLiteral("-progress"), scenePath, QStringLiteral("-consumer"), QStringLiteral("avformat:%1").arg(m_audioPath),
-                      QStringLiteral("vn=1"), QStringLiteral("ar=16000"), QStringLiteral("ac=1")});
+                      QStringLiteral("vn=1"), QStringLiteral("ar=16000"), QStringLiteral("ac=1"), QStringLiteral("threads=%1").arg(m_budget.cpuThreads)});
     if (!m_process->waitForStarted(5000)) {
         const QString error = m_process->errorString();
         reset();
         Q_EMIT busyChanged(false);
         Q_EMIT errorOccurred(i18n("Timeline audio export could not be started: %1", error));
+    } else {
+        applyNativeBudget();
     }
 }
 
@@ -109,19 +115,20 @@ void LocalTimelineTranscriber::startWhisper()
     if (!language.isEmpty()) {
         arguments << QStringLiteral("language=%1").arg(language);
     }
-    if (!KdenliveSettings::whisperDevice().isEmpty()) {
-        arguments << QStringLiteral("device=%1").arg(KdenliveSettings::whisperDevice());
-    }
-    if (KdenliveSettings::whisperDisableFP16() || KdenliveSettings::whisperDevice() == QLatin1String("cpu")) {
+    arguments << QStringLiteral("device=%1").arg(m_budget.device);
+    if (KdenliveSettings::whisperDisableFP16() || m_budget.device == QLatin1String("cpu")) {
         arguments << QStringLiteral("fp16=False");
     }
     m_phase = Phase::Transcribe;
+    configureProcessEnvironment();
     m_process->start(m_whisper->venvPythonExecs().python, arguments);
     if (!m_process->waitForStarted(5000)) {
         const QString error = m_process->errorString();
         reset();
         Q_EMIT busyChanged(false);
         Q_EMIT errorOccurred(i18n("Whisper could not be started: %1", error));
+    } else {
+        applyNativeBudget();
     }
 }
 
@@ -160,6 +167,7 @@ QString LocalTimelineTranscriber::parseSrt(const QByteArray &srt, double fps)
 
 void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus status)
 {
+    releaseNativeBudget();
     if (m_cancelRequested) {
         reset();
         Q_EMIT busyChanged(false);
@@ -208,8 +216,33 @@ void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus 
     }
 }
 
+void LocalTimelineTranscriber::configureProcessEnvironment()
+{
+    QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+    const QString threads = QString::number(m_budget.cpuThreads);
+    environment.insert(QStringLiteral("KDENLIVE_AI_THREADS"), threads);
+    environment.insert(QStringLiteral("OMP_NUM_THREADS"), threads);
+    environment.insert(QStringLiteral("MKL_NUM_THREADS"), threads);
+    environment.insert(QStringLiteral("OPENBLAS_NUM_THREADS"), threads);
+    environment.insert(QStringLiteral("KDENLIVE_AI_MEMORY_FRACTION"), QString::number(double(m_budget.percent) / 100.0, 'f', 2));
+    m_process->setProcessEnvironment(environment);
+}
+
+void LocalTimelineTranscriber::applyNativeBudget()
+{
+    releaseNativeBudget();
+    m_nativeBudgetHandle = ResourceBudget::applyToProcess(m_process->processId(), m_budget);
+}
+
+void LocalTimelineTranscriber::releaseNativeBudget()
+{
+    ResourceBudget::releaseProcessBudget(m_nativeBudgetHandle);
+    m_nativeBudgetHandle = 0;
+}
+
 void LocalTimelineTranscriber::reset()
 {
+    releaseNativeBudget();
     m_phase = Phase::Idle;
     m_audioPath.clear();
     m_srtPath.clear();

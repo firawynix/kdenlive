@@ -11,3 +11,9 @@
   cancellation to the dock.
 - [x] T6: Build, run focused tests, install the executable, document usage, and
   publish the branch.
+- [x] T7 (ASC-10): Add the persistent performance budget and apply it to the
+  local export and Whisper child processes.
+- [x] T8 (ASC-11): Add Windows Credential Manager integration plus safe
+  provider connection testing and removal.
+- [x] T9 (ASC-12): Apply fork branding while retaining Kdenlive compatibility
+  and legal attribution.

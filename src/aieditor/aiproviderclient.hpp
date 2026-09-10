@@ -52,6 +52,7 @@ public:
     static QString displayName(AiProvider provider);
     static QString environmentVariable(AiProvider provider);
     static QString defaultModel(AiProvider provider);
+    static BuiltAiRequest buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey);
     static BuiltAiRequest buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
                                        double fps, const QString &transcript = QString());
     static AiProviderResponse parseSuccessfulResponse(AiProvider provider, const QByteArray &payload);
@@ -61,20 +62,25 @@ public:
     bool isBusy() const;
     void requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
                      const QString &transcript = QString());
+    void testConnection(AiProvider provider, const QByteArray &apiKey);
     void cancel();
 
 Q_SIGNALS:
     void planReady(const QByteArray &validatedPlanJson);
     void errorOccurred(const QString &message);
     void requestCancelled();
+    void connectionTested(bool success, const QString &message);
     void busyChanged(bool busy);
 
 private:
+    enum class RequestKind { EditPlan, ConnectionTest };
+    void startRequest(const BuiltAiRequest &built, AiProvider provider, RequestKind kind);
     void setBusy(bool busy);
 
     QNetworkAccessManager *m_networkManager{nullptr};
     QNetworkReply *m_reply{nullptr};
     AiProvider m_activeProvider{AiProvider::OpenRouter};
+    RequestKind m_requestKind{RequestKind::EditPlan};
     bool m_cancelRequested{false};
 };
 

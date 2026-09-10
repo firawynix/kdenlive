@@ -24,6 +24,15 @@ the selected AI provider.
 - ASC-08: Allow cancellation while transcribing or waiting for the provider.
 - ASC-09: Reject overlapping, out-of-bounds, structurally unsupported, or
   unrepresentable operations before changing the timeline.
+- ASC-10: Provide a persistent 10–100% best-effort local resource budget with
+  an 80% default, automatic/advanced CPU threads, memory ceiling, and honest
+  processing-device selection.
+- ASC-11: Allow provider keys to be entered in the dock and stored only through
+  the operating system secure credential facility, with environment fallback,
+  connection testing, and removal.
+- ASC-12: Identify the fork as `Firawynix - Kdenlive` without changing the
+  stable application id or removing upstream authorship, copyright, homepage,
+  and GPL licensing.
 
 ## Acceptance criteria
 
@@ -34,3 +43,9 @@ the selected AI provider.
 - A mixed plan previews and applies several operations with one Undo restoring
   the prior timeline.
 - A missing Whisper setup produces actionable guidance and no timeline change.
+- The 80% default resolves to a bounded thread count and child-process memory
+  ceiling and persists when changed.
+- A pasted credential can be saved, tested, and removed without appearing in
+  configuration files, project files, logs, or repository changes.
+- The application window/About data display the fork name and upstream legal
+  attribution together.

@@ -30,7 +30,7 @@
 
 ## Next improvements
 
-1. Add a configurable 10–100% performance budget (80% default) for local audio
+1. [Done] Add a configurable 10–100% performance budget (80% default) for local audio
    export and Whisper, with safe CPU-thread, GPU/device, and memory/cache
    controls. Treat the percentage as best effort rather than an exact hardware
    utilization guarantee.
@@ -41,11 +41,11 @@
    provider cannot report measurable progress.
 3. Keep Cancel available throughout every phase and guarantee that cancellation
    leaves the timeline unchanged and removes temporary files.
-4. Add in-app credential management for OpenRouter, direct OpenAI, and direct
+4. [Done] Add in-app credential management for OpenRouter, direct OpenAI, and direct
    Anthropic Claude. Store secrets only through the operating system's secure
    credential facility, retain environment variables as a compatible fallback,
    and support test/remove actions without displaying or logging a key.
-5. Brand the fork's own user-facing surfaces as `Firawynix - Kdenlive` while
+5. [Done] Brand the fork's own user-facing surfaces as `Firawynix - Kdenlive` while
    retaining clear upstream Kdenlive attribution, copyright notices, and GPL
    licensing. Audit window titles, About data, package metadata, documentation,
    and generated installers instead of performing an unsafe global rename.

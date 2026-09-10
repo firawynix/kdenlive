@@ -7,19 +7,25 @@
 
 #include "core.h"
 #include "editplanexecutor.hpp"
+#include "kdenlivesettings.h"
 #include "localtimelinetranscriber.hpp"
 #include "mainwindow.h"
+#include "resourcebudget.hpp"
+#include "securecredentialstore.hpp"
 #include "timeline2/view/timelinewidget.h"
 
 #include <KLocalizedString>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSlider>
+#include <QSpinBox>
 #include <QTime>
 #include <QVBoxLayout>
 
@@ -43,17 +49,63 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     m_model = new QLineEdit(this);
     m_model->setClearButtonEnabled(true);
     providerForm->addRow(i18n("Model:"), m_model);
+
+    m_keyInput = new QLineEdit(this);
+    m_keyInput->setEchoMode(QLineEdit::Password);
+    m_keyInput->setClearButtonEnabled(true);
+    m_keyInput->setPlaceholderText(i18n("Paste a provider API key"));
+    providerForm->addRow(i18n("API key:"), m_keyInput);
     layout->addLayout(providerForm);
 
     m_keyStatus = new QLabel(this);
     m_keyStatus->setWordWrap(true);
     layout->addWidget(m_keyStatus);
 
+    auto *credentialButtons = new QHBoxLayout;
+    m_saveKey = new QPushButton(i18n("Save securely"), this);
+    m_testKey = new QPushButton(i18n("Test connection"), this);
+    m_removeKey = new QPushButton(i18n("Remove saved key"), this);
+    credentialButtons->addWidget(m_saveKey);
+    credentialButtons->addWidget(m_testKey);
+    credentialButtons->addWidget(m_removeKey);
+    layout->addLayout(credentialButtons);
+
     auto *privacy = new QLabel(
         i18n("Privacy: media files are never uploaded. When audio analysis is enabled, Whisper runs locally and only the timestamped transcript is sent."),
         this);
     privacy->setWordWrap(true);
     layout->addWidget(privacy);
+
+    auto *performanceGroup = new QGroupBox(i18n("Performance"), this);
+    auto *performanceLayout = new QFormLayout(performanceGroup);
+    m_performance = new QSlider(Qt::Horizontal, performanceGroup);
+    m_performance->setRange(10, 100);
+    m_performance->setSingleStep(5);
+    m_performance->setPageStep(10);
+    m_performance->setValue(qBound(10, KdenliveSettings::aiPerformancePercent(), 100));
+    performanceLayout->addRow(i18n("Resource budget:"), m_performance);
+    m_performanceSummary = new QLabel(performanceGroup);
+    m_performanceSummary->setWordWrap(true);
+    performanceLayout->addRow(QString(), m_performanceSummary);
+
+    m_cpuThreads = new QSpinBox(performanceGroup);
+    m_cpuThreads->setRange(0, ResourceBudget::logicalCpuCount());
+    m_cpuThreads->setSpecialValueText(i18n("Automatic"));
+    m_cpuThreads->setValue(qBound(0, KdenliveSettings::aiCpuThreads(), ResourceBudget::logicalCpuCount()));
+    performanceLayout->addRow(i18n("CPU threads:"), m_cpuThreads);
+
+    m_processingDevice = new QComboBox(performanceGroup);
+    m_processingDevice->addItem(i18n("Automatic (CPU on this system)"), QStringLiteral("auto"));
+    m_processingDevice->addItem(i18n("CPU"), QStringLiteral("cpu"));
+    if (ResourceBudget::cudaHardwareLikelyAvailable()) {
+        m_processingDevice->addItem(i18n("NVIDIA CUDA GPU"), QStringLiteral("cuda"));
+    } else {
+        m_processingDevice->setToolTip(i18n("The detected GPU is not compatible with this Whisper CUDA runtime. CPU processing remains available."));
+    }
+    const int deviceIndex = m_processingDevice->findData(KdenliveSettings::aiProcessingDevice());
+    m_processingDevice->setCurrentIndex(deviceIndex < 0 ? 0 : deviceIndex);
+    performanceLayout->addRow(i18n("Processing device:"), m_processingDevice);
+    layout->addWidget(performanceGroup);
 
     auto *presetForm = new QFormLayout;
     m_preset = new QComboBox(this);
@@ -110,6 +162,25 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     layout->addLayout(applyButtons);
 
     connect(m_provider, &QComboBox::currentIndexChanged, this, &AssistantDock::updateProvider);
+    connect(m_saveKey, &QPushButton::clicked, this, &AssistantDock::saveCredential);
+    connect(m_removeKey, &QPushButton::clicked, this, &AssistantDock::removeCredential);
+    connect(m_testKey, &QPushButton::clicked, this, &AssistantDock::testCredential);
+    connect(m_client, &AiProviderClient::connectionTested, this, [this](bool success, const QString &message) { setStatus(message, !success); });
+    connect(m_performance, &QSlider::valueChanged, this, [this](int value) {
+        KdenliveSettings::setAiPerformancePercent(value);
+        KdenliveSettings::self()->save();
+        updatePerformanceSummary();
+    });
+    connect(m_cpuThreads, qOverload<int>(&QSpinBox::valueChanged), this, [this](int value) {
+        KdenliveSettings::setAiCpuThreads(value);
+        KdenliveSettings::self()->save();
+        updatePerformanceSummary();
+    });
+    connect(m_processingDevice, &QComboBox::currentIndexChanged, this, [this]() {
+        KdenliveSettings::setAiProcessingDevice(m_processingDevice->currentData().toString());
+        KdenliveSettings::self()->save();
+        updatePerformanceSummary();
+    });
     connect(m_preset, &QComboBox::currentIndexChanged, this, [this](int index) {
         const QString prompt = m_preset->itemData(index).toString();
         if (!prompt.isEmpty()) {
@@ -140,6 +211,7 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     });
 
     updateProvider();
+    updatePerformanceSummary();
 }
 
 AiProvider AssistantDock::selectedProvider() const
@@ -149,6 +221,10 @@ AiProvider AssistantDock::selectedProvider() const
 
 QByteArray AssistantDock::selectedApiKey() const
 {
+    const QByteArray stored = SecureCredentialStore::read(selectedProvider());
+    if (!stored.isEmpty()) {
+        return stored;
+    }
     const QByteArray variable = AiProviderClient::environmentVariable(selectedProvider()).toUtf8();
     return qgetenv(variable.constData());
 }
@@ -156,6 +232,7 @@ QByteArray AssistantDock::selectedApiKey() const
 void AssistantDock::updateProvider()
 {
     m_model->setText(AiProviderClient::defaultModel(selectedProvider()));
+    m_keyInput->clear();
     updateCredentialStatus();
     discardPlan();
 }
@@ -163,11 +240,61 @@ void AssistantDock::updateProvider()
 void AssistantDock::updateCredentialStatus()
 {
     const QString variable = AiProviderClient::environmentVariable(selectedProvider());
-    if (selectedApiKey().isEmpty()) {
-        m_keyStatus->setText(i18n("Not connected. Set the %1 environment variable, then restart Kdenlive.", variable));
+    if (!SecureCredentialStore::read(selectedProvider()).isEmpty()) {
+        m_keyStatus->setText(i18n("Connected: key saved securely in %1.", SecureCredentialStore::backendName()));
+        m_removeKey->setEnabled(true);
+    } else if (!qgetenv(variable.toUtf8().constData()).isEmpty()) {
+        m_keyStatus->setText(i18n("Connected: key loaded from %1.", variable));
+        m_removeKey->setEnabled(false);
     } else {
-        m_keyStatus->setText(i18n("Connected: key loaded securely from %1.", variable));
+        m_keyStatus->setText(i18n("Not connected. Paste a key above and choose Save securely, or set %1.", variable));
+        m_removeKey->setEnabled(false);
     }
+}
+
+void AssistantDock::saveCredential()
+{
+    QString error;
+    if (!SecureCredentialStore::write(selectedProvider(), m_keyInput->text().toUtf8(), &error)) {
+        setStatus(error, true);
+        return;
+    }
+    m_keyInput->clear();
+    updateCredentialStatus();
+    setStatus(i18n("API key saved securely. It will not be written to the project or logs."));
+}
+
+void AssistantDock::removeCredential()
+{
+    QString error;
+    if (!SecureCredentialStore::remove(selectedProvider(), &error)) {
+        setStatus(error, true);
+        return;
+    }
+    m_keyInput->clear();
+    updateCredentialStatus();
+    setStatus(i18n("The saved key was removed. An environment-variable key may still be available."));
+}
+
+void AssistantDock::testCredential()
+{
+    const QByteArray candidate = m_keyInput->text().trimmed().isEmpty() ? selectedApiKey() : m_keyInput->text().trimmed().toUtf8();
+    if (candidate.isEmpty()) {
+        setStatus(i18n("Paste or save an API key before testing the connection."), true);
+        return;
+    }
+    setStatus(i18n("Testing the provider connection…"));
+    m_client->testConnection(selectedProvider(), candidate);
+}
+
+void AssistantDock::updatePerformanceSummary()
+{
+    const int percent = m_performance->value();
+    const int automaticThreads = qMax(1, qRound(double(ResourceBudget::logicalCpuCount()) * double(percent) / 100.0));
+    const int threads = m_cpuThreads->value() == 0 ? automaticThreads : m_cpuThreads->value();
+    const double memoryGiB = double(ResourceBudget::totalMemoryBytes()) * double(percent) / 100.0 / double(1024ULL * 1024ULL * 1024ULL);
+    m_performanceSummary->setText(i18n("%1% best-effort budget · %2 of %3 CPU threads · up to %4 GiB memory", percent, threads,
+                                       ResourceBudget::logicalCpuCount(), QString::number(memoryGiB, 'f', 1)));
 }
 
 void AssistantDock::generatePlan()
@@ -298,6 +425,13 @@ void AssistantDock::setBusy(bool busy)
     m_generate->setEnabled(!anyBusy);
     m_provider->setEnabled(!anyBusy);
     m_model->setEnabled(!anyBusy);
+    m_keyInput->setEnabled(!anyBusy);
+    m_saveKey->setEnabled(!anyBusy);
+    m_testKey->setEnabled(!anyBusy);
+    m_removeKey->setEnabled(!anyBusy && !SecureCredentialStore::read(selectedProvider()).isEmpty());
+    m_performance->setEnabled(!anyBusy);
+    m_cpuThreads->setEnabled(!anyBusy);
+    m_processingDevice->setEnabled(!anyBusy);
     m_preset->setEnabled(!anyBusy);
     m_analyzeAudio->setEnabled(!anyBusy);
     m_cancel->setEnabled(anyBusy);

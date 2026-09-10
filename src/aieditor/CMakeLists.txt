@@ -9,6 +9,8 @@ set(kdenlive_SRCS
     aieditor/editplanexecutor.cpp
     aieditor/localtimelinetranscriber.cpp
     aieditor/muterangeexecutor.cpp
+    aieditor/resourcebudget.cpp
     aieditor/retimerangeexecutor.cpp
+    aieditor/securecredentialstore.cpp
     PARENT_SCOPE
 )

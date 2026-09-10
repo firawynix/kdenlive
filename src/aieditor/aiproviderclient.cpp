@@ -152,6 +152,27 @@ QString AiProviderClient::defaultModel(AiProvider provider)
     return {};
 }
 
+BuiltAiRequest AiProviderClient::buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey)
+{
+    BuiltAiRequest result;
+    if (apiKey.trimmed().isEmpty()) {
+        result.error = QStringLiteral("The API key is missing.");
+        return result;
+    }
+    if (provider == AiProvider::OpenRouter) {
+        result.url = QUrl(QStringLiteral("https://openrouter.ai/api/v1/key"));
+        result.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + apiKey});
+    } else if (provider == AiProvider::OpenAI) {
+        result.url = QUrl(QStringLiteral("https://api.openai.com/v1/models"));
+        result.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + apiKey});
+    } else {
+        result.url = QUrl(QStringLiteral("https://api.anthropic.com/v1/models?limit=1"));
+        result.headers.push_back({QByteArrayLiteral("x-api-key"), apiKey});
+        result.headers.push_back({QByteArrayLiteral("anthropic-version"), QByteArrayLiteral("2023-06-01")});
+    }
+    return result;
+}
+
 BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
                                               double fps, const QString &transcript)
 {
@@ -298,14 +319,34 @@ void AiProviderClient::requestPlan(AiProvider provider, const QString &model, co
         return;
     }
 
+    startRequest(built, provider, RequestKind::EditPlan);
+}
+
+void AiProviderClient::testConnection(AiProvider provider, const QByteArray &apiKey)
+{
+    if (isBusy()) {
+        Q_EMIT connectionTested(false, QStringLiteral("Another provider request is already running."));
+        return;
+    }
+    const BuiltAiRequest built = buildConnectionTestRequest(provider, apiKey);
+    if (!built.isValid()) {
+        Q_EMIT connectionTested(false, built.error);
+        return;
+    }
+    startRequest(built, provider, RequestKind::ConnectionTest);
+}
+
+void AiProviderClient::startRequest(const BuiltAiRequest &built, AiProvider provider, RequestKind kind)
+{
     QNetworkRequest request(built.url);
     for (const auto &header : built.headers) {
         request.setRawHeader(header.first, header.second);
     }
     request.setTransferTimeout(60000);
     m_activeProvider = provider;
+    m_requestKind = kind;
     m_cancelRequested = false;
-    m_reply = m_networkManager->post(request, built.body);
+    m_reply = kind == RequestKind::EditPlan ? m_networkManager->post(request, built.body) : m_networkManager->get(request);
     setBusy(true);
 
     connect(m_reply, &QNetworkReply::finished, this, [this]() {
@@ -313,10 +354,25 @@ void AiProviderClient::requestPlan(AiProvider provider, const QString &model, co
         const int status = finishedReply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         const auto networkError = finishedReply->error();
         const QByteArray payload = finishedReply->readAll();
-        const auto result = completeResponse(m_activeProvider, status, networkError, m_cancelRequested, payload);
+        const RequestKind requestKind = m_requestKind;
         finishedReply->deleteLater();
         m_reply = nullptr;
         setBusy(false);
+        if (requestKind == RequestKind::ConnectionTest) {
+            if (m_cancelRequested || networkError == QNetworkReply::OperationCanceledError) {
+                Q_EMIT requestCancelled();
+            } else if (status >= 200 && status < 300 && networkError == QNetworkReply::NoError) {
+                Q_EMIT connectionTested(true, QStringLiteral("Connection successful."));
+            } else {
+                const QByteArray apiMessage = extractApiError(payload);
+                const QString message = apiMessage.isEmpty()
+                                            ? QStringLiteral("Connection test failed (HTTP %1).").arg(status)
+                                            : QStringLiteral("Connection test failed (HTTP %1): %2").arg(status).arg(QString::fromUtf8(apiMessage));
+                Q_EMIT connectionTested(false, message);
+            }
+            return;
+        }
+        const auto result = completeResponse(m_activeProvider, status, networkError, m_cancelRequested, payload);
         if (result.cancelled) {
             Q_EMIT requestCancelled();
         } else if (!result.isValid()) {

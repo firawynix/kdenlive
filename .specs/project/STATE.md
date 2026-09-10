@@ -28,21 +28,25 @@
   case with linked A/V, ripple, one-step undo, and redo.
 - The local machine has multilingual Whisper `base` installed and configured
   for Portuguese CPU transcription.
+- The assistant has a persistent 10–100% resource budget (80% default), an
+  automatic/advanced CPU thread selection, a memory ceiling, and a processing
+  device selector. This Windows/AMD setup correctly resolves to CPU because its
+  installed Whisper/PyTorch runtime has no compatible GPU backend.
+- OpenRouter, OpenAI, and Anthropic keys can be pasted into the dock and stored
+  in Windows Credential Manager, tested through read-only provider endpoints,
+  or removed without displaying or logging the secret. Environment variables
+  remain supported.
+- The fork displays `Firawynix - Kdenlive` while retaining the stable Kdenlive
+  application id, upstream attribution, authors, copyright, homepage, and GPL
+  license.
 - Next task: add more operation types only when each receives a schema, typed
   parser, preview, safe executor, and automated tests.
 
 ## Deferred Ideas
 
-- Configurable 10–100% performance budget, defaulting to 80%, for AI-local
-  workloads with CPU-thread, GPU/device, and memory/cache controls.
 - Progress UI for machine-intensive work: separate audio-export,
   transcription, and provider phases; show percentage where measurable,
   elapsed time, and a rolling ETA without blocking cancellation.
-- In-app API-key management for OpenRouter, OpenAI, and Anthropic Claude using
-  the operating system's secure credential store, with environment-variable
-  fallback and safe connection-test/removal actions.
-- Rename the fork's own product surfaces to `Firawynix - Kdenlive` while
-  preserving upstream Kdenlive attribution, copyrights, and GPL licensing.
 - Vision analysis of thumbnails or proxy media.
 - MCP/REST control of a running Kdenlive instance.
 

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "resourcebudget.hpp"
+
 #include <QObject>
 #include <QProcess>
 #include <memory>
@@ -41,6 +43,9 @@ private:
     enum class Phase { Idle, ExportAudio, Transcribe };
     void startWhisper();
     void finishProcess(int exitCode, QProcess::ExitStatus status);
+    void configureProcessEnvironment();
+    void applyNativeBudget();
+    void releaseNativeBudget();
     void reset();
 
     SpeechToTextWhisper *m_whisper{nullptr};
@@ -51,6 +56,8 @@ private:
     double m_fps{0.0};
     bool m_cancelRequested{false};
     Phase m_phase{Phase::Idle};
+    ResourceBudget m_budget;
+    quintptr m_nativeBudgetHandle{0};
 };
 
 } // namespace AiEditor
