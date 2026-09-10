@@ -7,12 +7,13 @@
 
 | Check | Result |
 | --- | --- |
-| Strict v1 plan parser added to `kdenliveLib` sources | PASS (source inspection) |
-| 120 s → 40 s at 25 fps asserts a 3× multiplier | PASS (test authored) |
-| Malformed, oversized, unsupported, and unsafe plans covered | PASS (test authored) |
+| Strict v1 plan parser added to `kdenliveLib` sources | PASS (compiled in `kdenliveLib`) |
+| 120 s → 40 s at 25 fps asserts a 3× multiplier | PASS (executed) |
+| Malformed, oversized, unsupported, and unsafe plans covered | PASS (executed) |
 | Diff whitespace validation | PASS |
 | Mermaid architecture rendering | PASS |
-| C++ compilation and test execution | NOT RUN — toolchain unavailable |
+| Full Kdenlive build with tests enabled | PASS (KDE Craft/MinGW) |
+| `aieditorplannertest` | PASS — 1/1 tests, 0 failures |
 
 ## Code Quality
 
@@ -21,6 +22,20 @@
 - Parser returns typed data and rejects the entire plan on the first invalid operation.
 - No new runtime dependency was introduced.
 
+## Verified Environment
+
+- KDE Craft root: `C:\CraftRoot`
+- ABI: `windows-gcc-x86_64`
+- Qt: 6.11.1
+- KDE Frameworks: 6.29.0
+- MLT: 7.41.0
+- GCC: 14.2.0
+- CMake: 4.1.4
+- Ninja: 1.13.2
+- Build directory: `C:\_\3377f5a\build`
+- Installed executable: `C:\CraftRoot\bin\kdenlive.exe`
+
 ## Next Gate
 
-Install or provide a KDE Craft build environment, configure with `BUILD_TESTING=ON`, build `aieditorplannertest`, and run it before starting the mutation executor.
+Proceed to T3 and test retime preflight against the real timeline model before
+adding any mutation behavior.

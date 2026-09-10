@@ -33,7 +33,7 @@ T5 → T6 → T7 → T8
 - Invalid size, JSON, version, operation count/type, and numeric fields return actionable errors.
 - Source is registered in `kdenliveLib`.
 
-### T2: Test the edit-plan contract ⚠️
+### T2: Test the edit-plan contract ✅
 
 **What:** Add parser contract tests to the existing Catch suite.
 **Where:** `tests/aieditorplannertest.cpp`, `tests/CMakeLists.txt`.
@@ -45,7 +45,9 @@ T5 → T6 → T7 → T8
 - Tests cover the valid 120s→40s case at 25 fps and all specified rejection categories.
 - Test target configures in a supported build environment.
 
-**Current:** Test source is complete; execution awaits a Qt/KDE/MLT build environment.
+**Verified:** Built from the local fork with KDE Craft/MinGW and
+`BUILD_TESTING=ON`; `ctest -R ^aieditorplannertest$ --output-on-failure`
+passes (1/1).
 
 ### T3: Implement retime preflight
 

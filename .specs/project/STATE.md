@@ -17,7 +17,12 @@
 - Upstream remote points to `KDE/kdenlive`.
 - Brownfield mapping, specification, design, and task plan are committed.
 - Typed `retime_range` edit-plan parser and contract tests are committed and pushed.
-- Next task after build verification: T3 retime preflight.
+- KDE Craft/MinGW environment is installed at `C:\CraftRoot` with Qt 6.11.1,
+  KDE Frameworks 6.29.0, MLT 7.41.0, FFmpeg, CMake 4.1.4, Ninja 1.13.2,
+  and GCC 14.2.0.
+- The local fork builds successfully with `BUILD_TESTING=ON`, and
+  `aieditorplannertest` passes.
+- Next task: T3 retime preflight.
 
 ## Deferred Ideas
 
@@ -28,5 +33,4 @@
 
 ## Blockers
 
-- This Windows machine has no CMake, C++ compiler, Qt, KDE Frameworks, or KDE Craft environment, so the new C++ tests cannot yet run locally.
-
+- None for the current foundation work.
