@@ -1,7 +1,7 @@
 # AI Editor Tasks
 
 **Design:** `.specs/features/ai-editor/design.md`
-**Status:** In Progress
+**Status:** Complete
 
 ## Execution Plan
 
@@ -114,13 +114,19 @@ Editing Assistant dock. Provider/model selection, credential state,
 generate/cancel, human-readable preview, preflight, Apply, and Discard are
 separate states; only Apply invokes the timeline executor.
 
-### T8: End-to-end acceptance and documentation
+### T8: End-to-end acceptance and documentation ✅
 
 **What:** Validate the complete example and document setup/privacy behavior.
 **Depends on:** T7.
 **Requirement:** AIE-01 through AIE-07.
 
 **Done when:** the 120s→40s scenario is previewable, applied once, and fully undoable.
+
+**Verified:** The acceptance test uses the literal 25 fps interval from frame
+250 to 3250 (120 seconds), produces a 3x retime to 1000 frames (40 seconds),
+ripples following material by 80 seconds, and restores the original timeline
+with one undo. Provider setup, manual testing, privacy, safety, and current
+limitations are documented in `dev-docs/ai-editor.md`.
 
 ## Tool Choice
 

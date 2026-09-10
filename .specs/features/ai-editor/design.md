@@ -2,11 +2,11 @@
 
 **Spec:** `.specs/features/ai-editor/spec.md`
 **Context:** `.specs/features/ai-editor/context.md`
-**Status:** Approved for foundation implementation
+**Status:** Implemented
 
 ## Architecture Overview
 
-The provider and UI never receive mutation-capable timeline objects. OpenRouter returns untrusted bytes; a strict parser converts them to a small typed model. Preview and execution consume only this typed model. See `architecture-flow.mmd` and its rendered SVG.
+The provider and UI never give an external model mutation-capable timeline objects. OpenRouter, OpenAI, or Anthropic returns untrusted bytes; a strict parser converts them to a small typed model. Preview and execution consume only this typed model. See `architecture-flow.mmd` and its rendered SVG.
 
 ## Code Reuse Analysis
 
@@ -30,19 +30,20 @@ The provider and UI never receive mutation-capable timeline objects. OpenRouter 
 
 ### RetimeRangeExecutor
 
-- **Location:** planned `src/aieditor/retimerangeexecutor.*`
+- **Location:** `src/aieditor/retimerangeexecutor.*`
 - **Purpose:** Preflight and execute a range retime as one composed undo transaction.
 - **Dependencies:** `TimelineModel`, `TimelineFunctions`, group model, Core undo stack.
 
-### OpenRouterClient
+### AiProviderClient
 
-- **Location:** planned `src/aieditor/openrouterclient.*`
-- **Purpose:** Send prompt plus minimal timeline context and return response bytes.
-- **Dependencies:** Qt Network; API key from `OPENROUTER_API_KEY` initially.
+- **Location:** `src/aieditor/aiproviderclient.*`
+- **Purpose:** Send prompt plus minimal timeline context to OpenRouter, OpenAI,
+  or Anthropic and return locally validated plan bytes.
+- **Dependencies:** Qt Network; provider-specific environment key.
 
 ### AssistantDock
 
-- **Location:** planned `src/aieditor/assistantdock.*`
+- **Location:** `src/aieditor/assistantdock.*`
 - **Purpose:** Prompt, progress, plan preview, Apply, Cancel, and errors.
 - **Reuses:** `MainWindow::addDock()` and KDE localization.
 
@@ -80,4 +81,3 @@ RetimeRangeOperation
 | Parser strictness | Closed version and operation set | Model output is untrusted |
 | Initial secret source | Environment variable | Avoid insecure persistence before a credential-store design |
 | Timeline API | Undo-composable overloads | One user-visible undo operation |
-

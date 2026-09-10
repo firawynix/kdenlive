@@ -1,21 +1,12 @@
 %% Diagram: Safe AI editing flow | Date: 2026-09-10
-%%{init: {'theme': 'base', 'themeVariables': {
-  'primaryColor': '#4f46e5', 'primaryTextColor': '#ffffff',
-  'primaryBorderColor': '#3730a3', 'lineColor': '#94a3b8',
-  'secondaryColor': '#10b981', 'tertiaryColor': '#f59e0b',
-  'background': '#ffffff', 'mainBkg': '#f8fafc',
-  'nodeBorder': '#cbd5e1', 'clusterBkg': '#f1f5f9',
-  'clusterBorder': '#e2e8f0', 'titleColor': '#1e293b',
-  'edgeLabelBackground': '#ffffff', 'textColor': '#334155'
-}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4f46e5', 'primaryTextColor': '#ffffff', 'primaryBorderColor': '#3730a3', 'lineColor': '#94a3b8', 'secondaryColor': '#10b981', 'tertiaryColor': '#f59e0b', 'background': '#ffffff', 'mainBkg': '#f8fafc', 'nodeBorder': '#cbd5e1', 'clusterBkg': '#f1f5f9', 'clusterBorder': '#e2e8f0', 'titleColor': '#1e293b', 'edgeLabelBackground': '#ffffff', 'textColor': '#334155'}}}%%
 flowchart LR
     editor[Editor prompt] -->|Sends intent| assistant[AI Assistant dock]
-    assistant -->|Prompt and metadata| openRouter[OpenRouter]
-    openRouter -->|Untrusted JSON| parser[Strict plan parser]
+    assistant -->|Prompt and metadata| provider[OpenRouter, OpenAI, or Claude]
+    provider -->|Untrusted JSON| parser[Strict plan parser]
     parser -->|Typed plan| preview[Plan preview]
     preview -->|Apply| executor[Timeline executor]
     executor -->|Validated calls| timeline[TimelineModel]
     timeline -->|One transaction| undo[Undo and redo]
     parser -->|Reject| error[Actionable error]
     preview -->|Cancel| unchanged[Timeline unchanged]
-

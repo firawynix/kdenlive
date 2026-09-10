@@ -6,9 +6,9 @@ Precise timeline edits often require several mechanical operations even when the
 
 ## Goals
 
-- [ ] Turn natural-language requests into a versioned, validated edit plan.
-- [ ] Preview and apply an exact-duration range retime as one undoable edit.
-- [ ] Establish an operation registry that can safely grow to other edit types.
+- [x] Turn natural-language requests into a versioned, validated edit plan.
+- [x] Preview and apply an exact-duration range retime as one undoable edit.
+- [x] Establish an operation contract that can safely grow to other edit types.
 
 ## Out of Scope
 
@@ -53,7 +53,7 @@ Precise timeline edits often require several mechanical operations even when the
 
 **Acceptance Criteria:**
 
-1. WHEN OpenRouter returns a valid plan THEN the assistant SHALL display a human-readable summary.
+1. WHEN a configured provider returns a valid plan THEN the assistant SHALL display a human-readable summary.
 2. WHEN the user cancels THEN the system SHALL leave the timeline unchanged.
 3. WHEN the user selects Apply THEN the validated plan SHALL be executed exactly once.
 
@@ -81,18 +81,18 @@ Precise timeline edits often require several mechanical operations even when the
 
 | Requirement ID | Story | Status |
 | --- | --- | --- |
-| AIE-01 | Safe AI plan ingestion | Implemented; build verification pending |
-| AIE-02 | Deterministic retime math | Implemented; build verification pending |
-| AIE-03 | Exact-duration range execution | Pending |
-| AIE-04 | Atomic undo/redo | Pending |
-| AIE-05 | Review before Apply | Pending |
-| AIE-06 | OpenRouter structured response | Pending |
-| AIE-07 | Expandable operation registry | Pending |
+| AIE-01 | Safe AI plan ingestion | Implemented and tested |
+| AIE-02 | Deterministic retime math | Implemented and tested |
+| AIE-03 | Exact-duration range execution | Implemented and tested |
+| AIE-04 | Atomic undo/redo | Implemented and tested |
+| AIE-05 | Review before Apply | Implemented and built |
+| AIE-06 | Three-provider structured response | Implemented and tested |
+| AIE-07 | Expandable operation contract | Implemented for v1 |
 
 **Coverage:** 7 requirements, 7 mapped to tasks, 0 unmapped.
 
 ## Success Criteria
 
-- [ ] A 120-second range targeting 40 seconds yields exactly 3× before frame rounding.
-- [ ] Invalid model output cannot invoke timeline APIs.
-- [ ] The complete P1 flow is previewable, cancellable, and undoable.
+- [x] A 120-second range targeting 40 seconds yields exactly 3× before frame rounding.
+- [x] Invalid model output cannot invoke timeline APIs.
+- [x] The complete P1 flow is previewable, cancellable, and undoable.

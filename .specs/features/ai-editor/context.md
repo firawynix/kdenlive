@@ -6,7 +6,7 @@
 
 ## Feature Boundary
 
-The first vertical slice accepts a natural-language exact-duration retime request, obtains a structured plan through OpenRouter, previews it, and applies it safely through Kdenlive timeline APIs.
+The first vertical slice accepts a natural-language exact-duration retime request, obtains a structured plan through OpenRouter, OpenAI, or Anthropic Claude, previews it, and applies it safely through Kdenlive timeline APIs.
 
 ## Implementation Decisions
 
@@ -25,7 +25,7 @@ The first vertical slice accepts a natural-language exact-duration retime reques
 
 ### Provider and Privacy
 
-- OpenRouter is the first provider.
+- OpenRouter, direct OpenAI, and direct Anthropic Claude use one provider-neutral client.
 - Send timeline metadata and the user's prompt, not source media, by default.
 - Use an environment variable for the first API-key integration; persistent secure storage is deferred.
 
@@ -43,4 +43,3 @@ The first vertical slice accepts a natural-language exact-duration retime reques
 ## Deferred Ideas
 
 - Transcription, silence removal, visual media analysis, and generative media.
-

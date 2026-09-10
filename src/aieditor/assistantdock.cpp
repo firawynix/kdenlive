@@ -211,10 +211,7 @@ void AssistantDock::discardPlan()
 
 void AssistantDock::setStatus(const QString &message, bool error)
 {
-    m_status->setText(message);
-    QPalette palette = m_status->palette();
-    palette.setColor(QPalette::WindowText, error ? palette.color(QPalette::Active, QPalette::BrightText) : palette.color(QPalette::Active, QPalette::Text));
-    m_status->setPalette(palette);
+    m_status->setText(error && !message.isEmpty() ? i18n("Error: %1", message) : message);
 }
 
 void AssistantDock::setBusy(bool busy)
@@ -238,4 +235,3 @@ QString AssistantDock::formatFrames(int frames, double fps) const
 
 } // namespace AiEditor
 } // namespace Kdenlive
-

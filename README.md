@@ -49,4 +49,9 @@ Kdenlive's primary development happens on [KDE Invent](https://invent.kde.org/mu
 
 Need help getting started? Join our Matrix channel `#kdenlive-dev:kde.org` - our community is friendly and always ready to help new contributors!
 
+## AI editor fork
+
+This fork's review-first OpenRouter, OpenAI, and Anthropic integration is
+documented in [AI Editing Assistant](dev-docs/ai-editor.md).
+
 Please get in touch with us before working on a task, either by commenting in the issue or through our Matrix channel.

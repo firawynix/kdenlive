@@ -1,7 +1,7 @@
-# AI Editor Foundation Validation
+# AI Editor Validation
 
 **Date:** 2026-09-10
-**Scope:** T1 and T2
+**Scope:** T1 through T8
 
 ## Results
 
@@ -14,12 +14,20 @@
 | Mermaid architecture rendering | PASS |
 | Full Kdenlive build with tests enabled | PASS (KDE Craft/MinGW) |
 | `aieditorplannertest` | PASS — 1/1 tests, 0 failures |
+| `aiproviderclienttest` | PASS — 1/1 tests, 0 failures |
+| `retimerangeexecutortest` | PASS — 1/1 tests, 0 failures |
+| Installed executable matches the tested build | PASS |
 
 ## Code Quality
 
-- Changes are isolated under `src/aieditor/` plus explicit CMake/test registration.
-- No timeline mutation or network code was added in this increment.
-- Parser returns typed data and rejects the entire plan on the first invalid operation.
+- Changes are isolated under `src/aieditor/` plus explicit Kdenlive UI,
+  CMake, test, and documentation registration.
+- Parser returns typed data and rejects the entire plan on the first invalid
+  operation.
+- OpenRouter, OpenAI, and Anthropic use provider-specific HTTPS and structured
+  response formats; keys are loaded only from environment variables.
+- AI generation only creates a preview. Timeline mutation starts after Apply.
+- Range cuts, linked A/V retime, ripple, and rollback compose into one undo.
 - No new runtime dependency was introduced.
 
 ## Verified Environment
@@ -35,7 +43,16 @@
 - Build directory: `C:\_\3377f5a\build`
 - Installed executable: `C:\CraftRoot\bin\kdenlive.exe`
 
-## Next Gate
+## Acceptance Scenario
 
-Proceed to T3 and test retime preflight against the real timeline model before
-adding any mutation behavior.
+At 25 fps, frames 250–3250 describe a 120-second interval. Retiming it to 1000
+frames produces exactly 40 seconds at 3x speed. The executor test verifies the
+new duration, linked audio/video alignment, the 80-second ripple, one-step
+undo, and redo.
+
+## Deliberately Deferred
+
+Version 1 does not expand ranges and rejects subtitles, compositions, mixes,
+locked content, internal clip boundaries, and unrelated overlaps. Additional
+edit types must use the same schema, parser, preview, preflight/executor, and
+test contract.
