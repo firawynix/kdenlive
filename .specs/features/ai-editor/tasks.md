@@ -75,13 +75,17 @@ compositions, mixes, and unrelated overlapping clips before mutation;
 to a linked audio/video pair, preserves its group, and its composed undo/redo
 restores both exact states in `retimerangeexecutortest`.
 
-### T5: Ripple and one-step undo
+### T5: Ripple and one-step undo ✅
 
 **What:** Close or open the duration delta and expose one undo entry.
 **Depends on:** T4.
 **Requirement:** AIE-04.
 
 **Done when:** undo and redo restore both exact timeline states.
+
+**Verified:** The retimed range closes its 80-frame delta across all unlocked
+tracks, the following linked segments move from frame 140 to frame 60, and one
+undo-stack entry restores cuts, speed, groups, and positions exactly.
 
 ### T6: Add OpenRouter client
 

@@ -6,9 +6,13 @@
 #include "retimerangeexecutor.hpp"
 
 #include "bin/model/subtitlemodel.hpp"
+#include "core.h"
+#include "macros.hpp"
 #include "timeline2/model/timelineitemmodel.hpp"
 #include "timeline2/model/timelinefunctions.hpp"
 
+#include <KLocalizedString>
+#include <QPoint>
 #include <algorithm>
 #include <unordered_set>
 
@@ -195,7 +199,39 @@ RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<Ti
         }
         result.retimedClipIds.push_back(clipId);
     }
+
+    const int retimedEnd = operation.startFrame + operation.targetDurationFrames;
+    if (retimedEnd < operation.endFrame) {
+        QVector<int> allTracks;
+        const auto trackIds = timeline->getAllTracksIds();
+        allTracks.reserve(qsizetype(trackIds.size()));
+        for (int trackId : trackIds) {
+            allTracks.push_back(trackId);
+        }
+
+        Fun rippleUndo = []() { return true; };
+        Fun rippleRedo = []() { return true; };
+        if (!TimelineFunctions::removeSpace(timeline, QPoint(retimedEnd, operation.endFrame), rippleUndo, rippleRedo, allTracks, false)) {
+            rollBack();
+            result.retimedClipIds.clear();
+            result.error = QStringLiteral("The timeline could not close the space left by the retime.");
+            return result;
+        }
+        UPDATE_UNDO_REDO_NOLOCK(rippleRedo, rippleUndo, undo, redo);
+    }
+
     std::sort(result.retimedClipIds.begin(), result.retimedClipIds.end());
+    return result;
+}
+
+RetimeRangeExecutionResult RetimeRangeExecutor::apply(const std::shared_ptr<TimelineItemModel> &timeline, const RetimeRangeOperation &operation)
+{
+    Fun undo = []() { return true; };
+    Fun redo = []() { return true; };
+    auto result = execute(timeline, operation, undo, redo);
+    if (result.isValid()) {
+        pCore->pushUndo(undo, redo, i18n("AI: Retime range"));
+    }
     return result;
 }
 

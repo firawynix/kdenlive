@@ -43,6 +43,7 @@ class RetimeRangeExecutor
 public:
     static RetimeRangePreflightResult preflight(const std::shared_ptr<TimelineItemModel> &timeline, const RetimeRangeOperation &operation);
     static RetimeRangeExecutionResult execute(const std::shared_ptr<TimelineItemModel> &timeline, const RetimeRangeOperation &operation, Fun &undo, Fun &redo);
+    static RetimeRangeExecutionResult apply(const std::shared_ptr<TimelineItemModel> &timeline, const RetimeRangeOperation &operation);
 };
 
 } // namespace AiEditor

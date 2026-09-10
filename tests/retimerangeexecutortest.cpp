@@ -94,10 +94,9 @@ TEST_CASE("AI retime range execution", "[AIEditor][Retime]")
     const int audioClip = KdenliveTests::groupsModel(timeline)->getSplitPartner(videoClip);
     REQUIRE(audioClip >= 0);
 
-    Fun undo = []() { return true; };
-    Fun redo = []() { return true; };
     const RetimeRangeOperation operation{20, 140, 40, true};
-    const auto result = RetimeRangeExecutor::execute(timeline, operation, undo, redo);
+    const int undoIndex = undoStack->index();
+    const auto result = RetimeRangeExecutor::apply(timeline, operation);
     INFO(result.error.toStdString());
     REQUIRE(result.isValid());
     REQUIRE(result.retimedClipIds.size() == 2);
@@ -112,9 +111,16 @@ TEST_CASE("AI retime range execution", "[AIEditor][Retime]")
     REQUIRE(timeline->getClipSpeed(retimedVideo) == Approx(3.0));
     REQUIRE(timeline->getClipSpeed(retimedAudio) == Approx(3.0));
     REQUIRE(timeline->getGroupElements(retimedVideo) == std::unordered_set<int>{retimedVideo, retimedAudio});
+    const int rightVideo = timeline->getClipByPosition(videoTrack, 60);
+    const int rightAudio = timeline->getClipByPosition(audioTrack, 60);
+    REQUIRE(rightVideo >= 0);
+    REQUIRE(rightAudio >= 0);
+    REQUIRE(timeline->getItemPosition(rightVideo) == 60);
+    REQUIRE(timeline->getItemPosition(rightAudio) == 60);
+    REQUIRE(undoStack->index() == undoIndex + 1);
     REQUIRE(timeline->checkConsistency());
 
-    REQUIRE(undo());
+    undoStack->undo();
     REQUIRE(timeline->getClipByPosition(videoTrack, operation.startFrame) == videoClip);
     REQUIRE(timeline->getItemPlaytime(videoClip) == 200);
     REQUIRE(timeline->getItemPlaytime(audioClip) == 200);
@@ -123,7 +129,7 @@ TEST_CASE("AI retime range execution", "[AIEditor][Retime]")
     REQUIRE(timeline->getGroupElements(videoClip) == std::unordered_set<int>{videoClip, audioClip});
     REQUIRE(timeline->checkConsistency());
 
-    REQUIRE(redo());
+    undoStack->redo();
     REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(videoTrack, operation.startFrame)) == 40);
     REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(audioTrack, operation.startFrame)) == 40);
     REQUIRE(timeline->checkConsistency());
