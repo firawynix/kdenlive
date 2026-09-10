@@ -38,6 +38,11 @@
 - Progress UI for machine-intensive work: separate audio-export,
   transcription, and provider phases; show percentage where measurable,
   elapsed time, and a rolling ETA without blocking cancellation.
+- In-app API-key management for OpenRouter, OpenAI, and Anthropic Claude using
+  the operating system's secure credential store, with environment-variable
+  fallback and safe connection-test/removal actions.
+- Rename the fork's own product surfaces to `Firawynix - Kdenlive` while
+  preserving upstream Kdenlive attribution, copyrights, and GPL licensing.
 - Vision analysis of thumbnails or proxy media.
 - MCP/REST control of a running Kdenlive instance.
 
