@@ -49,3 +49,12 @@
    retaining clear upstream Kdenlive attribution, copyright notices, and GPL
    licensing. Audit window titles, About data, package metadata, documentation,
    and generated installers instead of performing an unsafe global rename.
+6. Add complete Brazilian Portuguese localization for the fork's user-facing
+   experience, including the AI Editing Assistant, performance controls,
+   credential management, progress messages, errors, presets, and first-run
+   flow. Audit the full interface for untranslated or partially translated
+   strings.
+7. Show a language selector before the main window on first launch. Offer
+   Brazilian Portuguese as the recommended default on a Brazilian Portuguese
+   system, persist the choice, and keep the language change available later in
+   settings without showing the first-run prompt again.

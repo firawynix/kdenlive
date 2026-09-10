@@ -46,7 +46,13 @@
 
 - Progress UI for machine-intensive work: separate audio-export,
   transcription, and provider phases; show percentage where measurable,
-  elapsed time, and a rolling ETA without blocking cancellation.
+  elapsed time, and a rolling ETA without blocking cancellation. This is the
+  next requested usability improvement after the current long-video test.
+- Complete Brazilian Portuguese localization, including every fork-specific
+  AI, performance, credential, progress, and error string.
+- First-launch language selection before the main window, with Brazilian
+  Portuguese recommended when detected, a persisted choice, and a later
+  language setting.
 - Vision analysis of thumbnails or proxy media.
 - MCP/REST control of a running Kdenlive instance.
 
