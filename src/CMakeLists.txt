@@ -40,6 +40,7 @@ endif()
 
 ### Find source files
 add_subdirectory(abstractmodel)
+add_subdirectory(aieditor)
 add_subdirectory(assets)
 add_subdirectory(audiomixer)
 add_subdirectory(bin)
