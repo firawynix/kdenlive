@@ -87,13 +87,19 @@ restores both exact states in `retimerangeexecutortest`.
 tracks, the following linked segments move from frame 140 to frame 60, and one
 undo-stack entry restores cuts, speed, groups, and positions exactly.
 
-### T6: Add OpenRouter client
+### T6: Add OpenRouter, OpenAI, and Claude clients ✅
 
-**What:** Request a structured edit plan using minimal timeline context.
+**What:** Request a structured edit plan from OpenRouter, OpenAI, or Anthropic
+Claude using minimal timeline context.
 **Depends on:** T2.
 **Requirement:** AIE-06.
 
 **Done when:** success, timeout, cancellation, HTTP failure, and invalid response tests pass.
+
+**Verified:** `aiproviderclienttest` validates HTTPS endpoints, provider-specific
+authentication and structured-output envelopes, valid responses from both API
+families, missing credentials, timeout, cancellation, HTTP errors, and unsafe
+plans (1/1 passing).
 
 ### T7: Add assistant dock and preview
 
@@ -115,5 +121,5 @@ undo-stack entry restores cuts, speed, groups, and positions exactly.
 
 - Code navigation: CodeNavi workflow and local source search.
 - Diagram: Mermaid Studio validation/rendering.
-- Provider reference: official OpenRouter documentation.
+- Provider reference: official OpenRouter, OpenAI, and Anthropic documentation.
 - Source control: Git and connected GitHub repository.
