@@ -49,7 +49,7 @@ T5 → T6 → T7 → T8
 `BUILD_TESTING=ON`; `ctest -R ^aieditorplannertest$ --output-on-failure`
 passes (1/1).
 
-### T3: Implement retime preflight
+### T3: Implement retime preflight ✅
 
 **What:** Resolve and validate affected timeline items without mutation.
 **Where:** `src/aieditor/retimerangeexecutor.*`, corresponding tests.
@@ -57,6 +57,11 @@ passes (1/1).
 **Requirement:** AIE-03.
 
 **Done when:** unsupported or desynchronizing ranges fail before mutation.
+
+**Verified:** The focused executor test accepts one continuous clip and rejects
+empty ranges, internal clip boundaries, locked ripple content, subtitles,
+compositions, mixes, and unrelated overlapping clips before mutation;
+`ctest -R ^retimerangeexecutortest$ --output-on-failure` passes (1/1).
 
 ### T4: Execute boundary cuts and proportional retime
 
