@@ -71,3 +71,62 @@ TEST_CASE("AI retime range preflight", "[AIEditor][Retime]")
     REQUIRE(timeline->checkConsistency());
     pCore->projectManager()->closeCurrentDocument(false, false);
 }
+
+TEST_CASE("AI retime range execution", "[AIEditor][Retime]")
+{
+    auto binModel = pCore->projectItemModel();
+    binModel->clean();
+    auto undoStack = std::make_shared<DocUndoStack>(nullptr);
+    KdenliveDoc document(undoStack, {1, 1});
+    pCore->projectManager()->testSetDocument(&document);
+    KdenliveTests::updateTimeline(false, QString(), QString(), QDateTime::currentDateTime(), false);
+    auto timeline = document.getTimeline(document.uuid());
+    pCore->projectManager()->testSetActiveTimeline(timeline);
+    KdenliveTests::resetNextId();
+
+    QMap<int, QString> audioInfo;
+    audioInfo.insert(1, QStringLiteral("stream1"));
+    KdenliveTests::setAudioTargets(timeline, audioInfo);
+    const int videoTrack = timeline->getTrackIndexFromPosition(1);
+    const QString avProducer = KdenliveTests::createProducerWithSound(pCore->getProjectProfile(), binModel, 200);
+    int videoClip = -1;
+    REQUIRE(timeline->requestClipInsertion(avProducer, videoTrack, 0, videoClip, true, true, false));
+    const int audioClip = KdenliveTests::groupsModel(timeline)->getSplitPartner(videoClip);
+    REQUIRE(audioClip >= 0);
+
+    Fun undo = []() { return true; };
+    Fun redo = []() { return true; };
+    const RetimeRangeOperation operation{20, 140, 40, true};
+    const auto result = RetimeRangeExecutor::execute(timeline, operation, undo, redo);
+    INFO(result.error.toStdString());
+    REQUIRE(result.isValid());
+    REQUIRE(result.retimedClipIds.size() == 2);
+
+    const int retimedVideo = timeline->getClipByPosition(videoTrack, operation.startFrame);
+    const int audioTrack = timeline->getClipTrackId(audioClip);
+    const int retimedAudio = timeline->getClipByPosition(audioTrack, operation.startFrame);
+    REQUIRE(retimedVideo >= 0);
+    REQUIRE(retimedAudio >= 0);
+    REQUIRE(timeline->getItemPlaytime(retimedVideo) == 40);
+    REQUIRE(timeline->getItemPlaytime(retimedAudio) == 40);
+    REQUIRE(timeline->getClipSpeed(retimedVideo) == Approx(3.0));
+    REQUIRE(timeline->getClipSpeed(retimedAudio) == Approx(3.0));
+    REQUIRE(timeline->getGroupElements(retimedVideo) == std::unordered_set<int>{retimedVideo, retimedAudio});
+    REQUIRE(timeline->checkConsistency());
+
+    REQUIRE(undo());
+    REQUIRE(timeline->getClipByPosition(videoTrack, operation.startFrame) == videoClip);
+    REQUIRE(timeline->getItemPlaytime(videoClip) == 200);
+    REQUIRE(timeline->getItemPlaytime(audioClip) == 200);
+    REQUIRE(timeline->getClipSpeed(videoClip) == Approx(1.0));
+    REQUIRE(timeline->getClipSpeed(audioClip) == Approx(1.0));
+    REQUIRE(timeline->getGroupElements(videoClip) == std::unordered_set<int>{videoClip, audioClip});
+    REQUIRE(timeline->checkConsistency());
+
+    REQUIRE(redo());
+    REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(videoTrack, operation.startFrame)) == 40);
+    REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(audioTrack, operation.startFrame)) == 40);
+    REQUIRE(timeline->checkConsistency());
+
+    pCore->projectManager()->closeCurrentDocument(false, false);
+}

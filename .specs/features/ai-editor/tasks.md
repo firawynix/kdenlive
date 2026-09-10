@@ -63,13 +63,17 @@ empty ranges, internal clip boundaries, locked ripple content, subtitles,
 compositions, mixes, and unrelated overlapping clips before mutation;
 `ctest -R ^retimerangeexecutortest$ --output-on-failure` passes (1/1).
 
-### T4: Execute boundary cuts and proportional retime
+### T4: Execute boundary cuts and proportional retime ✅
 
 **What:** Apply the validated operation through undo-composable timeline APIs.
 **Depends on:** T3.
 **Requirement:** AIE-03, AIE-04.
 
 **Done when:** linked A/V remains synchronized and mutation failure rolls back.
+
+**Verified:** The executor isolates both boundaries, applies the exact 3x speed
+to a linked audio/video pair, preserves its group, and its composed undo/redo
+restores both exact states in `retimerangeexecutortest`.
 
 ### T5: Ripple and one-step undo
 

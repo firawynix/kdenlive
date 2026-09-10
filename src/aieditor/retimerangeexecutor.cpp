@@ -7,6 +7,7 @@
 
 #include "bin/model/subtitlemodel.hpp"
 #include "timeline2/model/timelineitemmodel.hpp"
+#include "timeline2/model/timelinefunctions.hpp"
 
 #include <algorithm>
 #include <unordered_set>
@@ -15,6 +16,11 @@ namespace Kdenlive {
 namespace AiEditor {
 
 bool RetimeRangePreflightResult::isValid() const
+{
+    return error.isEmpty();
+}
+
+bool RetimeRangeExecutionResult::isValid() const
 {
     return error.isEmpty();
 }
@@ -108,6 +114,88 @@ RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<
         result.trackIds.push_back(trackId);
     }
     std::sort(result.trackIds.begin(), result.trackIds.end());
+    return result;
+}
+
+RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<TimelineItemModel> &timeline, const RetimeRangeOperation &operation, Fun &undo,
+                                                        Fun &redo)
+{
+    RetimeRangeExecutionResult result;
+    const auto validation = preflight(timeline, operation);
+    if (!validation.isValid()) {
+        result.error = validation.error;
+        return result;
+    }
+    if (operation.targetDurationFrames > operation.endFrame - operation.startFrame) {
+        result.error = QStringLiteral("Making a range longer is not supported yet.");
+        return result;
+    }
+
+    const int representativeTrack = timeline->getClipTrackId(validation.clipIds.constFirst());
+    int segmentId = timeline->getClipByPosition(representativeTrack, operation.startFrame);
+    if (segmentId < 0) {
+        result.error = QStringLiteral("The clip at the range start could not be resolved.");
+        return result;
+    }
+
+    auto rollBack = [&]() {
+        const bool restored = undo();
+        Q_ASSERT(restored);
+        undo = []() { return true; };
+        redo = []() { return true; };
+    };
+
+    if (timeline->getItemPosition(segmentId) < operation.startFrame) {
+        if (!TimelineFunctions::requestClipCut(timeline, segmentId, operation.startFrame, undo, redo)) {
+            rollBack();
+            result.error = QStringLiteral("Could not cut the clips at the range start.");
+            return result;
+        }
+        segmentId = timeline->getClipByPosition(representativeTrack, operation.startFrame);
+    }
+    if (segmentId < 0 || timeline->getItemPosition(segmentId) != operation.startFrame) {
+        rollBack();
+        result.error = QStringLiteral("The range start did not produce an exact clip boundary.");
+        return result;
+    }
+
+    if (timeline->getItemEnd(segmentId) > operation.endFrame
+        && !TimelineFunctions::requestClipCut(timeline, segmentId, operation.endFrame, undo, redo)) {
+        rollBack();
+        result.error = QStringLiteral("Could not cut the clips at the range end.");
+        return result;
+    }
+
+    segmentId = timeline->getClipByPosition(representativeTrack, operation.startFrame);
+    if (segmentId < 0) {
+        rollBack();
+        result.error = QStringLiteral("The isolated range could not be resolved.");
+        return result;
+    }
+
+    const auto segments = timeline->getGroupElements(segmentId);
+    for (int clipId : segments) {
+        if (!timeline->isClip(clipId) || timeline->getItemPosition(clipId) != operation.startFrame || timeline->getItemEnd(clipId) != operation.endFrame) {
+            rollBack();
+            result.error = QStringLiteral("The range did not isolate an aligned clip group.");
+            return result;
+        }
+    }
+
+    for (int clipId : segments) {
+        if (!timeline->requestClipTimeWarp(clipId, operation.speedMultiplier(), operation.preservePitch, true, undo, redo)) {
+            rollBack();
+            result.error = QStringLiteral("Kdenlive could not apply the requested speed to every clip.");
+            return result;
+        }
+        if (timeline->getItemPlaytime(clipId) != operation.targetDurationFrames) {
+            rollBack();
+            result.error = QStringLiteral("The requested duration cannot be represented exactly in this project.");
+            return result;
+        }
+        result.retimedClipIds.push_back(clipId);
+    }
+    std::sort(result.retimedClipIds.begin(), result.retimedClipIds.end());
     return result;
 }
 
