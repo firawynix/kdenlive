@@ -6,6 +6,9 @@ set(kdenlive_SRCS
     aieditor/aiproviderclient.cpp
     aieditor/assistantdock.cpp
     aieditor/editplan.cpp
+    aieditor/editplanexecutor.cpp
+    aieditor/localtimelinetranscriber.cpp
+    aieditor/muterangeexecutor.cpp
     aieditor/retimerangeexecutor.cpp
     PARENT_SCOPE
 )

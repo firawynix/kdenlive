@@ -1,7 +1,7 @@
 # AI Editing Assistant
 
 This fork adds a review-first AI workflow to Kdenlive. An external model turns
-a natural-language instruction into a small JSON edit plan; Kdenlive validates
+a natural-language instruction into a typed JSON edit plan; Kdenlive validates
 and previews the plan locally, and only mutates the timeline after the user
 presses **Apply**.
 
@@ -26,7 +26,38 @@ setx OPENROUTER_API_KEY "your-key-here"
 Use `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` instead for the direct providers.
 Never commit a key to this repository or put it in a Kdenlive project.
 
-## Manual acceptance test
+## Ready prompts
+
+The **Ready prompt** selector fills the instruction field and leaves it
+editable. It includes:
+
+- Clean work meeting: mute off-topic dialogue and compress silent gaps.
+- Mute off-topic dialogue.
+- Compress silent gaps longer than two seconds to 0.5 seconds.
+- Exact-duration speed change.
+
+The first three automatically enable local audio analysis. Custom instructions
+can enable or disable it with the checkbox.
+
+## Semantic cleanup test
+
+1. Start `C:\CraftRoot\bin\kdenlive.exe` and open a project containing an
+   audio/video clip on the timeline.
+2. Open **View → AI Editing Assistant**.
+3. Choose **Clean work meeting** under **Ready prompt**. The instruction remains
+   editable and local audio analysis is selected automatically.
+4. Choose the provider/model and press **Generate plan**. Kdenlive exports the
+   current timeline audio to a temporary local WAV and transcribes it locally
+   with Whisper. For a long video this can take several minutes on CPU.
+5. Review every proposed mute or speed operation. The timeline has not changed
+   yet.
+6. Press **Apply**, then use Undo once to restore the complete previous
+   timeline.
+
+This machine is configured with the multilingual Whisper `base` model,
+Portuguese language, CPU processing, and FP16 disabled.
+
+## Exact-duration acceptance test
 
 1. Start `C:\CraftRoot\bin\kdenlive.exe`.
 2. Create a 25 fps project and place one audio/video clip across 00:10–02:10.
@@ -46,8 +77,10 @@ Never commit a key to this repository or put it in a Kdenlive project.
 
 ## Safety and privacy
 
-- Only the instruction, project FPS, and total timeline frame count are sent.
-  Media and project files are not uploaded.
+- Without local audio analysis, only the instruction, project FPS, and total
+  timeline frame count are sent.
+- With local audio analysis, media stays on the computer. Only the timestamped
+  transcript text is additionally sent to the selected provider.
 - Provider responses are untrusted. A versioned, closed parser rejects invalid
   or unsupported plans before any timeline API is called.
 - Timeline preflight rejects cases that could partially mutate or desynchronize
@@ -57,10 +90,11 @@ Never commit a key to this repository or put it in a Kdenlive project.
 
 ## Current scope and extension contract
 
-Version 1 applies one `retime_range` operation that shortens/speeds up a
-continuous range. It intentionally refuses range expansion, subtitles,
-compositions, mixes, locked content, internal clip boundaries, and unrelated
-overlaps. This is not yet arbitrary video editing.
+Version 1 supports up to 256 non-overlapping `retime_range` and `mute_range`
+operations. Plans are applied from the end toward the beginning as one undoable
+action. Range expansion, subtitles during retime, compositions, mixes, locked
+content, internal clip boundaries, and unrelated overlaps remain intentionally
+unsupported.
 
 Every future edit type must add all five pieces: JSON schema, typed parser,
 human-readable preview, preflight/executor, and automated tests. This keeps the
@@ -72,7 +106,7 @@ of Kdenlive internals.
 From the KDE Craft environment, run:
 
 ```powershell
-ctest --test-dir C:\_\3377f5a\build -R "^(aieditorplannertest|aiproviderclienttest|retimerangeexecutortest)$" --output-on-failure
+ctest --test-dir C:\_\3377f5a\build -R "^(aieditorplannertest|aiproviderclienttest|retimerangeexecutortest|aieditorsemanticexecutortest)$" --output-on-failure
 ```
 
 The acceptance test uses frames 250–3250 at 25 fps (120 seconds) and targets

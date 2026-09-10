@@ -8,6 +8,7 @@
 
 #include <QByteArray>
 
+using Kdenlive::AiEditor::EditOperationType;
 using Kdenlive::AiEditor::parseEditPlan;
 
 TEST_CASE("AI edit plans are parsed into safe typed operations", "[AIEditor][EditPlan]")
@@ -44,6 +45,20 @@ TEST_CASE("AI edit plans are parsed into safe typed operations", "[AIEditor][Edi
         REQUIRE(result.isValid());
         REQUIRE_FALSE(result.plan.operations.constFirst().retimeRange.preservePitch);
     }
+
+    SECTION("Mute and retime operations can be combined")
+    {
+        const auto result = parseEditPlan(
+            R"({"version":1,"operations":[{"type":"mute_range","start_frame":10,"end_frame":20},{"type":"retime_range","start_frame":30,"end_frame":80,"target_duration_frames":10,"preserve_pitch":true}]})");
+
+        INFO(result.error.toStdString());
+        REQUIRE(result.isValid());
+        REQUIRE(result.plan.operations.size() == 2);
+        REQUIRE(result.plan.operations.at(0).type == EditOperationType::MuteRange);
+        REQUIRE(result.plan.operations.at(0).muteRange.startFrame == 10);
+        REQUIRE(result.plan.operations.at(0).muteRange.endFrame == 20);
+        REQUIRE(result.plan.operations.at(1).type == EditOperationType::RetimeRange);
+    }
 }
 
 TEST_CASE("Unsafe AI edit plans are rejected before execution", "[AIEditor][EditPlan]")
@@ -71,7 +86,7 @@ TEST_CASE("Unsafe AI edit plans are rejected before execution", "[AIEditor][Edit
         REQUIRE_FALSE(parseEditPlan(R"({"version":1,"operations":[]})").isValid());
 
         QByteArray operations;
-        for (int index = 0; index < 65; ++index) {
+        for (int index = 0; index < 257; ++index) {
             if (!operations.isEmpty()) {
                 operations.append(',');
             }
@@ -82,27 +97,31 @@ TEST_CASE("Unsafe AI edit plans are rejected before execution", "[AIEditor][Edit
 
     SECTION("Frame values must be bounded integers with a valid interval")
     {
-        REQUIRE_FALSE(parseEditPlan(
-                          R"({"version":1,"operations":[{"type":"retime_range","start_frame":-1,"end_frame":20,"target_duration_frames":10}]})")
-                          .isValid());
-        REQUIRE_FALSE(parseEditPlan(
-                          R"({"version":1,"operations":[{"type":"retime_range","start_frame":1.5,"end_frame":20,"target_duration_frames":10}]})")
-                          .isValid());
-        REQUIRE_FALSE(parseEditPlan(
-                          R"({"version":1,"operations":[{"type":"retime_range","start_frame":20,"end_frame":20,"target_duration_frames":10}]})")
-                          .isValid());
-        REQUIRE_FALSE(parseEditPlan(
-                          R"({"version":1,"operations":[{"type":"retime_range","start_frame":0,"end_frame":20,"target_duration_frames":0}]})")
-                          .isValid());
-        REQUIRE_FALSE(parseEditPlan(
-                          R"({"version":1,"operations":[{"type":"retime_range","start_frame":0,"end_frame":2147483648,"target_duration_frames":1}]})")
+        REQUIRE_FALSE(
+            parseEditPlan(R"({"version":1,"operations":[{"type":"retime_range","start_frame":-1,"end_frame":20,"target_duration_frames":10}]})").isValid());
+        REQUIRE_FALSE(
+            parseEditPlan(R"({"version":1,"operations":[{"type":"retime_range","start_frame":1.5,"end_frame":20,"target_duration_frames":10}]})").isValid());
+        REQUIRE_FALSE(
+            parseEditPlan(R"({"version":1,"operations":[{"type":"retime_range","start_frame":20,"end_frame":20,"target_duration_frames":10}]})").isValid());
+        REQUIRE_FALSE(
+            parseEditPlan(R"({"version":1,"operations":[{"type":"retime_range","start_frame":0,"end_frame":20,"target_duration_frames":0}]})").isValid());
+        REQUIRE_FALSE(parseEditPlan(R"({"version":1,"operations":[{"type":"retime_range","start_frame":0,"end_frame":2147483648,"target_duration_frames":1}]})")
                           .isValid());
     }
 
     SECTION("Pitch preservation must be boolean")
     {
-        REQUIRE_FALSE(parseEditPlan(
-                          R"({"version":1,"operations":[{"type":"retime_range","start_frame":0,"end_frame":20,"target_duration_frames":10,"preserve_pitch":"yes"}]})")
-                          .isValid());
+        REQUIRE_FALSE(
+            parseEditPlan(
+                R"({"version":1,"operations":[{"type":"retime_range","start_frame":0,"end_frame":20,"target_duration_frames":10,"preserve_pitch":"yes"}]})")
+                .isValid());
+    }
+
+    SECTION("Overlapping operations are rejected")
+    {
+        REQUIRE_FALSE(
+            parseEditPlan(
+                R"({"version":1,"operations":[{"type":"mute_range","start_frame":10,"end_frame":30},{"type":"retime_range","start_frame":20,"end_frame":40,"target_duration_frames":5,"preserve_pitch":true}]})")
+                .isValid());
     }
 }

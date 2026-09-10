@@ -12,6 +12,7 @@
 
 class MainWindow;
 class QComboBox;
+class QCheckBox;
 class QLabel;
 class QLineEdit;
 class QPlainTextEdit;
@@ -19,6 +20,8 @@ class QPushButton;
 
 namespace Kdenlive {
 namespace AiEditor {
+
+class LocalTimelineTranscriber;
 
 class AssistantDock : public QWidget
 {
@@ -33,6 +36,7 @@ private:
     void updateProvider();
     void updateCredentialStatus();
     void generatePlan();
+    void requestProviderPlan(const QString &transcript = QString());
     void showPlan(const QByteArray &planJson);
     void applyPlan();
     void discardPlan();
@@ -42,9 +46,12 @@ private:
 
     MainWindow *m_mainWindow{nullptr};
     AiProviderClient *m_client{nullptr};
+    LocalTimelineTranscriber *m_transcriber{nullptr};
     QComboBox *m_provider{nullptr};
     QLineEdit *m_model{nullptr};
     QLabel *m_keyStatus{nullptr};
+    QComboBox *m_preset{nullptr};
+    QCheckBox *m_analyzeAudio{nullptr};
     QPlainTextEdit *m_prompt{nullptr};
     QPushButton *m_generate{nullptr};
     QPushButton *m_cancel{nullptr};
@@ -54,8 +61,8 @@ private:
     QPushButton *m_discard{nullptr};
     EditPlan m_plan;
     bool m_hasPlan{false};
+    QString m_pendingPrompt;
 };
 
 } // namespace AiEditor
 } // namespace Kdenlive
-

@@ -9,6 +9,7 @@ kde_enable_exceptions()
 set(KdenliveTest_SOURCES
     aiproviderclienttest.cpp
     aieditorplannertest.cpp
+    aieditorsemanticexecutortest.cpp
     retimerangeexecutortest.cpp
     avcurvetest.cpp
     audiolevelstasktest.cpp

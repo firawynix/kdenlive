@@ -17,49 +17,70 @@ namespace AiEditor {
 namespace {
 QJsonObject editPlanSchema()
 {
-    const QJsonObject operationProperties{
-        {QStringLiteral("type"), QJsonObject{{QStringLiteral("type"), QStringLiteral("string")},
-                                              {QStringLiteral("enum"), QJsonArray{QStringLiteral("retime_range")}}}},
+    const QJsonObject rangeProperties{
         {QStringLiteral("start_frame"), QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")}, {QStringLiteral("minimum"), 0}}},
         {QStringLiteral("end_frame"), QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")}, {QStringLiteral("minimum"), 1}}},
-        {QStringLiteral("target_duration_frames"),
-         QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")}, {QStringLiteral("minimum"), 1}}},
-        {QStringLiteral("preserve_pitch"), QJsonObject{{QStringLiteral("type"), QStringLiteral("boolean")}}},
     };
-    const QJsonObject operation{{QStringLiteral("type"), QStringLiteral("object")},
-                                {QStringLiteral("additionalProperties"), false},
-                                {QStringLiteral("properties"), operationProperties},
-                                {QStringLiteral("required"),
-                                 QJsonArray{QStringLiteral("type"), QStringLiteral("start_frame"), QStringLiteral("end_frame"),
-                                            QStringLiteral("target_duration_frames"), QStringLiteral("preserve_pitch")}}};
+    QJsonObject retimeProperties = rangeProperties;
+    retimeProperties.insert(QStringLiteral("type"), QJsonObject{{QStringLiteral("type"), QStringLiteral("string")},
+                                                                {QStringLiteral("enum"), QJsonArray{QStringLiteral("retime_range")}}});
+    retimeProperties.insert(QStringLiteral("target_duration_frames"),
+                            QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")}, {QStringLiteral("minimum"), 1}});
+    retimeProperties.insert(QStringLiteral("preserve_pitch"), QJsonObject{{QStringLiteral("type"), QStringLiteral("boolean")}});
+    QJsonObject muteProperties = rangeProperties;
+    muteProperties.insert(QStringLiteral("type"),
+                          QJsonObject{{QStringLiteral("type"), QStringLiteral("string")}, {QStringLiteral("enum"), QJsonArray{QStringLiteral("mute_range")}}});
+
+    const QJsonObject retimeOperation{
+        {QStringLiteral("type"), QStringLiteral("object")},
+        {QStringLiteral("additionalProperties"), false},
+        {QStringLiteral("properties"), retimeProperties},
+        {QStringLiteral("required"), QJsonArray{QStringLiteral("type"), QStringLiteral("start_frame"), QStringLiteral("end_frame"),
+                                                QStringLiteral("target_duration_frames"), QStringLiteral("preserve_pitch")}}};
+    const QJsonObject muteOperation{
+        {QStringLiteral("type"), QStringLiteral("object")},
+        {QStringLiteral("additionalProperties"), false},
+        {QStringLiteral("properties"), muteProperties},
+        {QStringLiteral("required"), QJsonArray{QStringLiteral("type"), QStringLiteral("start_frame"), QStringLiteral("end_frame")}}};
+    const QJsonObject operation{{QStringLiteral("anyOf"), QJsonArray{retimeOperation, muteOperation}}};
     return QJsonObject{{QStringLiteral("type"), QStringLiteral("object")},
                        {QStringLiteral("additionalProperties"), false},
-                       {QStringLiteral("properties"),
-                        QJsonObject{{QStringLiteral("version"),
-                                     QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")},
-                                                 {QStringLiteral("enum"), QJsonArray{1}}}},
-                                    {QStringLiteral("operations"),
-                                     QJsonObject{{QStringLiteral("type"), QStringLiteral("array")},
-                                                 {QStringLiteral("minItems"), 1},
-                                                 {QStringLiteral("maxItems"), 1},
-                                                 {QStringLiteral("items"), operation}}}}},
+                       {QStringLiteral("properties"), QJsonObject{{QStringLiteral("version"), QJsonObject{{QStringLiteral("type"), QStringLiteral("integer")},
+                                                                                                          {QStringLiteral("enum"), QJsonArray{1}}}},
+                                                                  {QStringLiteral("operations"), QJsonObject{{QStringLiteral("type"), QStringLiteral("array")},
+                                                                                                             {QStringLiteral("minItems"), 1},
+                                                                                                             {QStringLiteral("maxItems"), 256},
+                                                                                                             {QStringLiteral("items"), operation}}}}},
                        {QStringLiteral("required"), QJsonArray{QStringLiteral("version"), QStringLiteral("operations")}}};
 }
 
 QString systemPrompt()
 {
     return QStringLiteral(
-        "You translate a user's Kdenlive editing instruction into one safe edit plan. Output only the requested JSON schema. "
-        "The only supported operation is retime_range. Interpret timecodes using the supplied FPS, round to the nearest frame, make end_frame exclusive, "
-        "and use target_duration_frames for the requested final duration. Never invent edits that the user did not request.");
+        "You translate a user's Kdenlive editing instruction into a safe edit plan. Output only the requested JSON schema. "
+        "Supported operations are retime_range and mute_range. Use mute_range for dialogue the user wants silent, without removing video. "
+        "Use retime_range to compress silent gaps or for exact-duration speed changes. A transcript line [start-end] is audible dialogue in exactly that "
+        "frame range. A silent gap is only the interval from one transcript line's end to the next line's start. If the user asks to clean dialogue, create "
+        "mute_range only for transcript speech whose words are outside the requested topics. Never mute silence, relevant speech, or a leading/trailing "
+        "interval without dialogue on both sides. If the user asks to compress silence, create retime_range only for qualifying gaps between transcript lines, "
+        "never over speech; calculate the requested target duration in frames and preserve pitch. Interpret explicit timecodes using the supplied FPS, round "
+        "to "
+        "the nearest frame, make end_frame exclusive, and use target_duration_frames for the requested final duration. Operations must not overlap. Never "
+        "invent edits that the user did not request. Example at 25 FPS: instruction 'mute vacation talk and compress silence over 2 seconds to 0.5 seconds', "
+        "transcript '[0-40] vacation plans' and '[110-160] Salesforce work' produces mute_range 0-40 and retime_range 40-110 with "
+        "target_duration_frames=13 and preserve_pitch=true. It does not edit 110-160 or trailing silence, and never emits a no-op retime.");
 }
 
-QString userMessage(const QString &prompt, int timelineFrames, double fps)
+QString userMessage(const QString &prompt, int timelineFrames, double fps, const QString &transcript)
 {
-    return QStringLiteral("Project context: FPS=%1; timeline_duration_frames=%2.\nUser instruction: %3")
-        .arg(QString::number(fps, 'g', 12))
-        .arg(timelineFrames)
-        .arg(prompt);
+    QString message = QStringLiteral("Project context: FPS=%1; timeline_duration_frames=%2.\nUser instruction: %3")
+                          .arg(QString::number(fps, 'g', 12))
+                          .arg(timelineFrames)
+                          .arg(prompt);
+    if (!transcript.isEmpty()) {
+        message += QStringLiteral("\nTimestamped local transcript (media was not uploaded):\n%1").arg(transcript);
+    }
+    return message;
 }
 
 QByteArray extractApiError(const QByteArray &payload)
@@ -132,7 +153,7 @@ QString AiProviderClient::defaultModel(AiProvider provider)
 }
 
 BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
-                                              double fps)
+                                              double fps, const QString &transcript)
 {
     BuiltAiRequest result;
     if (model.trimmed().isEmpty()) {
@@ -156,7 +177,8 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
     const QJsonObject schema = editPlanSchema();
     const QJsonArray messages{
         QJsonObject{{QStringLiteral("role"), QStringLiteral("system")}, {QStringLiteral("content"), systemPrompt()}},
-        QJsonObject{{QStringLiteral("role"), QStringLiteral("user")}, {QStringLiteral("content"), userMessage(prompt.trimmed(), timelineFrames, fps)}},
+        QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
+                    {QStringLiteral("content"), userMessage(prompt.trimmed(), timelineFrames, fps, transcript)}},
     };
 
     QJsonObject body;
@@ -165,23 +187,21 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
         result.url = QUrl(QStringLiteral("https://api.anthropic.com/v1/messages"));
         result.headers.push_back({QByteArrayLiteral("x-api-key"), apiKey});
         result.headers.push_back({QByteArrayLiteral("anthropic-version"), QByteArrayLiteral("2023-06-01")});
-        body.insert(QStringLiteral("max_tokens"), 2048);
+        body.insert(QStringLiteral("max_tokens"), 8192);
         body.insert(QStringLiteral("system"), systemPrompt());
         body.insert(QStringLiteral("messages"), QJsonArray{messages.at(1)});
-        body.insert(QStringLiteral("output_config"),
-                    QJsonObject{{QStringLiteral("format"),
-                                 QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")}, {QStringLiteral("schema"), schema}}}});
+        body.insert(QStringLiteral("output_config"), QJsonObject{{QStringLiteral("format"), QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")},
+                                                                                                        {QStringLiteral("schema"), schema}}}});
     } else {
         result.url = provider == AiProvider::OpenRouter ? QUrl(QStringLiteral("https://openrouter.ai/api/v1/chat/completions"))
-                                                       : QUrl(QStringLiteral("https://api.openai.com/v1/chat/completions"));
+                                                        : QUrl(QStringLiteral("https://api.openai.com/v1/chat/completions"));
         result.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + apiKey});
         body.insert(QStringLiteral("messages"), messages);
         body.insert(QStringLiteral("response_format"),
                     QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")},
-                                {QStringLiteral("json_schema"),
-                                 QJsonObject{{QStringLiteral("name"), QStringLiteral("kdenlive_edit_plan")},
-                                             {QStringLiteral("strict"), true},
-                                             {QStringLiteral("schema"), schema}}}});
+                                {QStringLiteral("json_schema"), QJsonObject{{QStringLiteral("name"), QStringLiteral("kdenlive_edit_plan")},
+                                                                            {QStringLiteral("strict"), true},
+                                                                            {QStringLiteral("schema"), schema}}}});
     }
     result.body = QJsonDocument(body).toJson(QJsonDocument::Compact);
     return result;
@@ -243,14 +263,18 @@ AiProviderResponse AiProviderClient::completeResponse(AiProvider provider, int h
         result.error = QStringLiteral("The AI request timed out. Check the connection and try again.");
         return result;
     }
+    if (httpStatus > 0 && (httpStatus < 200 || httpStatus >= 300)) {
+        const QByteArray apiMessage = extractApiError(payload);
+        result.error = apiMessage.isEmpty() ? QStringLiteral("The AI provider returned HTTP %1.").arg(httpStatus)
+                                            : QStringLiteral("The AI provider returned HTTP %1: %2").arg(httpStatus).arg(QString::fromUtf8(apiMessage));
+        return result;
+    }
     if (networkError != QNetworkReply::NoError) {
         result.error = QStringLiteral("The AI request failed because of a network error.");
         return result;
     }
     if (httpStatus < 200 || httpStatus >= 300) {
-        const QByteArray apiMessage = extractApiError(payload);
-        result.error = apiMessage.isEmpty() ? QStringLiteral("The AI provider returned HTTP %1.").arg(httpStatus)
-                                            : QStringLiteral("The AI provider returned HTTP %1: %2").arg(httpStatus).arg(QString::fromUtf8(apiMessage));
+        result.error = QStringLiteral("The AI provider returned an invalid HTTP response.");
         return result;
     }
     return parseSuccessfulResponse(provider, payload);
@@ -261,13 +285,14 @@ bool AiProviderClient::isBusy() const
     return m_reply != nullptr;
 }
 
-void AiProviderClient::requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps)
+void AiProviderClient::requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
+                                   const QString &transcript)
 {
     if (isBusy()) {
         Q_EMIT errorOccurred(QStringLiteral("An AI request is already running."));
         return;
     }
-    const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps);
+    const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps, transcript);
     if (!built.isValid()) {
         Q_EMIT errorOccurred(built.error);
         return;

@@ -14,21 +14,20 @@
 using namespace Kdenlive::AiEditor;
 
 namespace {
-const QByteArray ValidPlan = R"({"version":1,"operations":[{"type":"retime_range","start_frame":250,"end_frame":3250,"target_duration_frames":1000,"preserve_pitch":true}]})";
+const QByteArray ValidPlan =
+    R"({"version":1,"operations":[{"type":"retime_range","start_frame":250,"end_frame":3250,"target_duration_frames":1000,"preserve_pitch":true}]})";
 
 QByteArray chatResponse(const QByteArray &plan)
 {
     return QJsonDocument(QJsonObject{{QStringLiteral("choices"),
-                                      QJsonArray{QJsonObject{{QStringLiteral("message"),
-                                                             QJsonObject{{QStringLiteral("content"), QString::fromUtf8(plan)}}}}}}})
+                                      QJsonArray{QJsonObject{{QStringLiteral("message"), QJsonObject{{QStringLiteral("content"), QString::fromUtf8(plan)}}}}}}})
         .toJson(QJsonDocument::Compact);
 }
 
 QByteArray anthropicResponse(const QByteArray &plan)
 {
-    return QJsonDocument(QJsonObject{{QStringLiteral("content"),
-                                      QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
-                                                             {QStringLiteral("text"), QString::fromUtf8(plan)}}}}})
+    return QJsonDocument(QJsonObject{{QStringLiteral("content"), QJsonArray{QJsonObject{{QStringLiteral("type"), QStringLiteral("text")},
+                                                                                        {QStringLiteral("text"), QString::fromUtf8(plan)}}}}})
         .toJson(QJsonDocument::Compact);
 }
 } // namespace
@@ -53,6 +52,19 @@ TEST_CASE("AI provider request construction", "[AIEditor][Provider]")
         REQUIRE(body.contains(QStringLiteral("response_format")));
         REQUIRE(body.value(QStringLiteral("messages")).toArray().size() == 2);
     }
+}
+
+TEST_CASE("AI provider sends transcript text without media", "[AIEditor][Provider]")
+{
+    const auto request =
+        AiProviderClient::buildRequest(AiProvider::OpenRouter, QStringLiteral("test/model"), QByteArrayLiteral("secret"),
+                                       QStringLiteral("Mute off-topic dialogue"), 5000, 25.0, QStringLiteral("[25-50] conversa sobre trabalho"));
+    REQUIRE(request.isValid());
+    const QJsonObject body = QJsonDocument::fromJson(request.body).object();
+    const QString message = body.value(QStringLiteral("messages")).toArray().at(1).toObject().value(QStringLiteral("content")).toString();
+    REQUIRE(message.contains(QStringLiteral("[25-50] conversa sobre trabalho")));
+    REQUIRE_FALSE(message.contains(QStringLiteral("file://")));
+    REQUIRE_FALSE(message.contains(QStringLiteral("data:")));
 }
 
 TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
@@ -93,6 +105,15 @@ TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
         REQUIRE_FALSE(result.isValid());
         REQUIRE(result.error.contains(QStringLiteral("401")));
         REQUIRE(result.error.contains(QStringLiteral("invalid key")));
+    }
+
+    SECTION("prefers an HTTP provider error over Qt's generic network label")
+    {
+        const QByteArray payload = R"({"error":{"message":"insufficient credits"}})";
+        const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 402, QNetworkReply::UnknownContentError, false, payload);
+        REQUIRE_FALSE(result.isValid());
+        REQUIRE(result.error.contains(QStringLiteral("402")));
+        REQUIRE(result.error.contains(QStringLiteral("insufficient credits")));
     }
 
     SECTION("rejects unsafe plan")

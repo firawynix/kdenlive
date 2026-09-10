@@ -12,7 +12,7 @@
 namespace Kdenlive {
 namespace AiEditor {
 
-enum class EditOperationType { RetimeRange };
+enum class EditOperationType { RetimeRange, MuteRange };
 
 struct RetimeRangeOperation
 {
@@ -24,10 +24,20 @@ struct RetimeRangeOperation
     double speedMultiplier() const;
 };
 
+struct MuteRangeOperation
+{
+    int startFrame{-1};
+    int endFrame{-1};
+};
+
 struct EditOperation
 {
     EditOperationType type{EditOperationType::RetimeRange};
     RetimeRangeOperation retimeRange;
+    MuteRangeOperation muteRange;
+
+    int startFrame() const;
+    int endFrame() const;
 };
 
 struct EditPlan
@@ -48,4 +58,3 @@ EditPlanParseResult parseEditPlan(const QByteArray &json);
 
 } // namespace AiEditor
 } // namespace Kdenlive
-

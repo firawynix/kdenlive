@@ -53,13 +53,14 @@ public:
     static QString environmentVariable(AiProvider provider);
     static QString defaultModel(AiProvider provider);
     static BuiltAiRequest buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
-                                       double fps);
+                                       double fps, const QString &transcript = QString());
     static AiProviderResponse parseSuccessfulResponse(AiProvider provider, const QByteArray &payload);
     static AiProviderResponse completeResponse(AiProvider provider, int httpStatus, QNetworkReply::NetworkError networkError, bool wasCancelled,
                                                const QByteArray &payload);
 
     bool isBusy() const;
-    void requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps);
+    void requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
+                     const QString &transcript = QString());
     void cancel();
 
 Q_SIGNALS:
@@ -79,4 +80,3 @@ private:
 
 } // namespace AiEditor
 } // namespace Kdenlive
-

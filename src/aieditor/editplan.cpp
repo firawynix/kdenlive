@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QJsonParseError>
 #include <QJsonValue>
+#include <algorithm>
 #include <limits>
 
 namespace Kdenlive {
@@ -17,7 +18,7 @@ namespace AiEditor {
 
 namespace {
 constexpr qsizetype MaxPlanSize = 256 * 1024;
-constexpr qsizetype MaxOperationCount = 64;
+constexpr qsizetype MaxOperationCount = 256;
 
 bool readFrame(const QJsonObject &object, const QString &name, int minimum, int &result, QString &error)
 {
@@ -40,9 +41,9 @@ bool readFrame(const QJsonObject &object, const QString &name, int minimum, int 
 
 bool parseRetimeRange(const QJsonObject &object, RetimeRangeOperation &operation, QString &error)
 {
-    if (!readFrame(object, QStringLiteral("start_frame"), 0, operation.startFrame, error)
-        || !readFrame(object, QStringLiteral("end_frame"), 0, operation.endFrame, error)
-        || !readFrame(object, QStringLiteral("target_duration_frames"), 1, operation.targetDurationFrames, error)) {
+    if (!readFrame(object, QStringLiteral("start_frame"), 0, operation.startFrame, error) ||
+        !readFrame(object, QStringLiteral("end_frame"), 0, operation.endFrame, error) ||
+        !readFrame(object, QStringLiteral("target_duration_frames"), 1, operation.targetDurationFrames, error)) {
         return false;
     }
 
@@ -61,11 +62,34 @@ bool parseRetimeRange(const QJsonObject &object, RetimeRangeOperation &operation
     }
     return true;
 }
+
+bool parseMuteRange(const QJsonObject &object, MuteRangeOperation &operation, QString &error)
+{
+    if (!readFrame(object, QStringLiteral("start_frame"), 0, operation.startFrame, error) ||
+        !readFrame(object, QStringLiteral("end_frame"), 0, operation.endFrame, error)) {
+        return false;
+    }
+    if (operation.endFrame <= operation.startFrame) {
+        error = QStringLiteral("Operation field 'end_frame' must be greater than 'start_frame'.");
+        return false;
+    }
+    return true;
+}
 } // namespace
 
 double RetimeRangeOperation::speedMultiplier() const
 {
     return double(endFrame - startFrame) / double(targetDurationFrames);
+}
+
+int EditOperation::startFrame() const
+{
+    return type == EditOperationType::RetimeRange ? retimeRange.startFrame : muteRange.startFrame;
+}
+
+int EditOperation::endFrame() const
+{
+    return type == EditOperationType::RetimeRange ? retimeRange.endFrame : muteRange.endFrame;
 }
 
 bool EditPlanParseResult::isValid() const
@@ -112,7 +136,7 @@ EditPlanParseResult parseEditPlan(const QByteArray &json)
 
     const QJsonArray operations = operationsValue.toArray();
     if (operations.isEmpty() || operations.size() > MaxOperationCount) {
-        result.error = QStringLiteral("Edit plan must contain between 1 and 64 operations.");
+        result.error = QStringLiteral("Edit plan must contain between 1 and 256 operations.");
         return result;
     }
 
@@ -126,25 +150,48 @@ EditPlanParseResult parseEditPlan(const QByteArray &json)
 
         const QJsonObject object = operations.at(index).toObject();
         const QJsonValue typeValue = object.value(QStringLiteral("type"));
-        if (!typeValue.isString() || typeValue.toString() != QLatin1String("retime_range")) {
+        if (!typeValue.isString()) {
             result.error = QStringLiteral("Operation %1 has an unsupported or missing type.").arg(index + 1);
             result.plan.operations.clear();
             return result;
         }
 
         EditOperation operation;
-        operation.type = EditOperationType::RetimeRange;
         QString operationError;
-        if (!parseRetimeRange(object, operation.retimeRange, operationError)) {
-            result.error = QStringLiteral("Operation %1 is invalid: %2").arg(index + 1).arg(operationError);
+        const QString type = typeValue.toString();
+        if (type == QLatin1String("retime_range")) {
+            operation.type = EditOperationType::RetimeRange;
+            if (!parseRetimeRange(object, operation.retimeRange, operationError)) {
+                result.error = QStringLiteral("Operation %1 is invalid: %2").arg(index + 1).arg(operationError);
+                result.plan.operations.clear();
+                return result;
+            }
+        } else if (type == QLatin1String("mute_range")) {
+            operation.type = EditOperationType::MuteRange;
+            if (!parseMuteRange(object, operation.muteRange, operationError)) {
+                result.error = QStringLiteral("Operation %1 is invalid: %2").arg(index + 1).arg(operationError);
+                result.plan.operations.clear();
+                return result;
+            }
+        } else {
+            result.error = QStringLiteral("Operation %1 has an unsupported or missing type.").arg(index + 1);
             result.plan.operations.clear();
             return result;
         }
         result.plan.operations.push_back(operation);
+    }
+
+    QVector<EditOperation> sorted = result.plan.operations;
+    std::sort(sorted.begin(), sorted.end(), [](const EditOperation &left, const EditOperation &right) { return left.startFrame() < right.startFrame(); });
+    for (qsizetype index = 1; index < sorted.size(); ++index) {
+        if (sorted.at(index).startFrame() < sorted.at(index - 1).endFrame()) {
+            result.error = QStringLiteral("Edit plan operations must not overlap.");
+            result.plan.operations.clear();
+            return result;
+        }
     }
     return result;
 }
 
 } // namespace AiEditor
 } // namespace Kdenlive
-

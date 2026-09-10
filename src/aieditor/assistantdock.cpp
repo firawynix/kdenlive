@@ -6,11 +6,13 @@
 #include "assistantdock.hpp"
 
 #include "core.h"
+#include "editplanexecutor.hpp"
+#include "localtimelinetranscriber.hpp"
 #include "mainwindow.h"
-#include "retimerangeexecutor.hpp"
 #include "timeline2/view/timelinewidget.h"
 
 #include <KLocalizedString>
+#include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QHBoxLayout>
@@ -47,15 +49,38 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     m_keyStatus->setWordWrap(true);
     layout->addWidget(m_keyStatus);
 
-    auto *privacy = new QLabel(i18n("Privacy: only your instruction, project FPS, and timeline duration are sent. Media files are not uploaded."), this);
+    auto *privacy = new QLabel(
+        i18n("Privacy: media files are never uploaded. When audio analysis is enabled, Whisper runs locally and only the timestamped transcript is sent."),
+        this);
     privacy->setWordWrap(true);
     layout->addWidget(privacy);
+
+    auto *presetForm = new QFormLayout;
+    m_preset = new QComboBox(this);
+    m_preset->addItem(i18n("Custom instruction"), QString());
+    m_preset->addItem(i18n("Clean work meeting"),
+                      QStringLiteral("Silencie todas as conversas que não sejam relacionadas a Salesforce, inteligência artificial ou trabalho. "
+                                     "Nos intervalos sem diálogo maiores que 2 segundos, acelere para que durem 0,5 segundo. Preserve o tom do áudio."));
+    m_preset->addItem(i18n("Mute off-topic dialogue"),
+                      QStringLiteral("Silencie todas as falas que não sejam relacionadas a Salesforce, inteligência artificial ou trabalho. "
+                                     "Não remova nem acelere essas partes; apenas deixe o áudio mudo."));
+    m_preset->addItem(i18n("Compress silent gaps"),
+                      QStringLiteral("Acelere todos os intervalos sem diálogo maiores que 2 segundos para que cada um dure 0,5 segundo. "
+                                     "Preserve o tom do áudio e não altere trechos com fala."));
+    m_preset->addItem(i18n("Exact-duration speed change"),
+                      QStringLiteral("Do tempo 00:00:00 até 00:00:10, acelere para que dure exatamente 2 segundos e preserve o tom do áudio."));
+    presetForm->addRow(i18n("Ready prompt:"), m_preset);
+    layout->addLayout(presetForm);
 
     layout->addWidget(new QLabel(i18n("Describe the edit:"), this));
     m_prompt = new QPlainTextEdit(this);
     m_prompt->setPlaceholderText(i18n("Example: From 00:10 to 02:10, speed it up so the result lasts exactly 40 seconds."));
     m_prompt->setMinimumHeight(90);
     layout->addWidget(m_prompt);
+
+    m_analyzeAudio = new QCheckBox(i18n("Analyze timeline audio locally with Whisper"), this);
+    m_analyzeAudio->setToolTip(i18n("Needed for requests about dialogue topics or silent gaps. The media stays on this computer."));
+    layout->addWidget(m_analyzeAudio);
 
     auto *requestButtons = new QHBoxLayout;
     m_generate = new QPushButton(i18n("Generate plan"), this);
@@ -85,14 +110,34 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     layout->addLayout(applyButtons);
 
     connect(m_provider, &QComboBox::currentIndexChanged, this, &AssistantDock::updateProvider);
+    connect(m_preset, &QComboBox::currentIndexChanged, this, [this](int index) {
+        const QString prompt = m_preset->itemData(index).toString();
+        if (!prompt.isEmpty()) {
+            m_prompt->setPlainText(prompt);
+        }
+        m_analyzeAudio->setChecked(index >= 1 && index <= 3);
+    });
     connect(m_generate, &QPushButton::clicked, this, &AssistantDock::generatePlan);
-    connect(m_cancel, &QPushButton::clicked, m_client, &AiProviderClient::cancel);
+    connect(m_cancel, &QPushButton::clicked, this, [this]() {
+        m_client->cancel();
+        m_transcriber->cancel();
+    });
     connect(m_apply, &QPushButton::clicked, this, &AssistantDock::applyPlan);
     connect(m_discard, &QPushButton::clicked, this, &AssistantDock::discardPlan);
     connect(m_client, &AiProviderClient::busyChanged, this, &AssistantDock::setBusy);
     connect(m_client, &AiProviderClient::planReady, this, &AssistantDock::showPlan);
     connect(m_client, &AiProviderClient::errorOccurred, this, [this](const QString &message) { setStatus(message, true); });
     connect(m_client, &AiProviderClient::requestCancelled, this, [this]() { setStatus(i18n("Request cancelled.")); });
+
+    m_transcriber = new LocalTimelineTranscriber(this);
+    connect(m_transcriber, &LocalTimelineTranscriber::busyChanged, this, &AssistantDock::setBusy);
+    connect(m_transcriber, &LocalTimelineTranscriber::statusChanged, this, [this](const QString &message) { setStatus(message); });
+    connect(m_transcriber, &LocalTimelineTranscriber::errorOccurred, this, [this](const QString &message) { setStatus(message, true); });
+    connect(m_transcriber, &LocalTimelineTranscriber::cancelled, this, [this]() { setStatus(i18n("Local transcription cancelled.")); });
+    connect(m_transcriber, &LocalTimelineTranscriber::transcriptReady, this, [this](const QString &transcript) {
+        setStatus(i18n("Local transcript ready. Requesting the edit plan…"));
+        requestProviderPlan(transcript);
+    });
 
     updateProvider();
 }
@@ -128,21 +173,48 @@ void AssistantDock::updateCredentialStatus()
 void AssistantDock::generatePlan()
 {
     updateCredentialStatus();
+    if (m_model->text().trimmed().isEmpty()) {
+        setStatus(i18n("Choose a model before sending the request."), true);
+        return;
+    }
+    if (selectedApiKey().trimmed().isEmpty()) {
+        setStatus(i18n("The API key is missing. Set %1 and restart Kdenlive.", AiProviderClient::environmentVariable(selectedProvider())), true);
+        return;
+    }
+    if (m_prompt->toPlainText().trimmed().isEmpty()) {
+        setStatus(i18n("Describe the edit you want before sending the request."), true);
+        return;
+    }
     TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
     if (!timelineWidget || !timelineWidget->model()) {
         setStatus(i18n("Open a project timeline before requesting an edit."), true);
         return;
     }
     discardPlan();
-    m_client->requestPlan(selectedProvider(), m_model->text(), selectedApiKey(), m_prompt->toPlainText(), timelineWidget->model()->duration(),
-                          pCore->getCurrentFps());
+    m_pendingPrompt = m_prompt->toPlainText();
+    if (m_analyzeAudio->isChecked()) {
+        m_transcriber->start(timelineWidget->model(), pCore->getCurrentFps());
+    } else {
+        requestProviderPlan();
+    }
+}
+
+void AssistantDock::requestProviderPlan(const QString &transcript)
+{
+    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
+    if (!timelineWidget || !timelineWidget->model()) {
+        setStatus(i18n("The active timeline is no longer available."), true);
+        return;
+    }
+    m_client->requestPlan(selectedProvider(), m_model->text(), selectedApiKey(), m_pendingPrompt, timelineWidget->model()->duration(), pCore->getCurrentFps(),
+                          transcript);
 }
 
 void AssistantDock::showPlan(const QByteArray &planJson)
 {
     const auto parsed = parseEditPlan(planJson);
-    if (!parsed.isValid() || parsed.plan.operations.size() != 1) {
-        setStatus(parsed.isValid() ? i18n("This version can apply exactly one operation at a time.") : parsed.error, true);
+    if (!parsed.isValid()) {
+        setStatus(parsed.error, true);
         return;
     }
 
@@ -154,22 +226,26 @@ void AssistantDock::showPlan(const QByteArray &planJson)
 
     m_plan = parsed.plan;
     m_hasPlan = true;
-    const RetimeRangeOperation &operation = m_plan.operations.constFirst().retimeRange;
     const double fps = pCore->getCurrentFps();
-    const int sourceDuration = operation.endFrame - operation.startFrame;
-    m_preview->setPlainText(
-        i18n("Operation: speed up a range\nRange: %1 to %2 (frames %3–%4)\nOriginal duration: %5\nNew duration: %6\nSpeed: %7x\nPreserve audio pitch: %8",
-             formatFrames(operation.startFrame, fps), formatFrames(operation.endFrame, fps), operation.startFrame, operation.endFrame,
-             formatFrames(sourceDuration, fps), formatFrames(operation.targetDurationFrames, fps), QString::number(operation.speedMultiplier(), 'f', 3),
-             operation.preservePitch ? i18n("Yes") : i18n("No")));
+    QStringList preview;
+    for (qsizetype index = 0; index < m_plan.operations.size(); ++index) {
+        const EditOperation &edit = m_plan.operations.at(index);
+        if (edit.type == EditOperationType::RetimeRange) {
+            const auto &operation = edit.retimeRange;
+            const int sourceDuration = operation.endFrame - operation.startFrame;
+            preview << i18n("%1. Speed up range\n   %2 to %3 · %4 → %5 · %6x · preserve pitch: %7", index + 1, formatFrames(operation.startFrame, fps),
+                            formatFrames(operation.endFrame, fps), formatFrames(sourceDuration, fps), formatFrames(operation.targetDurationFrames, fps),
+                            QString::number(operation.speedMultiplier(), 'f', 3), operation.preservePitch ? i18n("Yes") : i18n("No"));
+        } else {
+            const auto &operation = edit.muteRange;
+            preview << i18n("%1. Mute audio\n   %2 to %3 · duration %4", index + 1, formatFrames(operation.startFrame, fps),
+                            formatFrames(operation.endFrame, fps), formatFrames(operation.endFrame - operation.startFrame, fps));
+        }
+    }
+    m_preview->setPlainText(preview.join(QStringLiteral("\n\n")));
     m_discard->setEnabled(true);
 
-    if (operation.targetDurationFrames > sourceDuration) {
-        m_apply->setEnabled(false);
-        setStatus(i18n("This first version can shorten/speed up a range, but cannot make it longer yet."), true);
-        return;
-    }
-    const auto preflight = RetimeRangeExecutor::preflight(timelineWidget->model(), operation);
+    const auto preflight = EditPlanExecutor::preflight(timelineWidget->model(), m_plan);
     if (!preflight.isValid()) {
         m_apply->setEnabled(false);
         setStatus(preflight.error, true);
@@ -182,11 +258,11 @@ void AssistantDock::showPlan(const QByteArray &planJson)
 void AssistantDock::applyPlan()
 {
     TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
-    if (!m_hasPlan || m_plan.operations.size() != 1 || !timelineWidget || !timelineWidget->model()) {
+    if (!m_hasPlan || !timelineWidget || !timelineWidget->model()) {
         setStatus(i18n("There is no valid plan to apply to the active timeline."), true);
         return;
     }
-    const auto result = RetimeRangeExecutor::apply(timelineWidget->model(), m_plan.operations.constFirst().retimeRange);
+    const auto result = EditPlanExecutor::apply(timelineWidget->model(), m_plan);
     if (!result.isValid()) {
         setStatus(result.error, true);
         return;
@@ -201,6 +277,7 @@ void AssistantDock::discardPlan()
 {
     m_hasPlan = false;
     m_plan = {};
+    m_pendingPrompt.clear();
     m_preview->clear();
     m_apply->setEnabled(false);
     m_discard->setEnabled(false);
@@ -216,11 +293,15 @@ void AssistantDock::setStatus(const QString &message, bool error)
 
 void AssistantDock::setBusy(bool busy)
 {
-    m_generate->setEnabled(!busy);
-    m_provider->setEnabled(!busy);
-    m_model->setEnabled(!busy);
-    m_cancel->setEnabled(busy);
-    if (busy) {
+    Q_UNUSED(busy)
+    const bool anyBusy = m_client->isBusy() || (m_transcriber && m_transcriber->isBusy());
+    m_generate->setEnabled(!anyBusy);
+    m_provider->setEnabled(!anyBusy);
+    m_model->setEnabled(!anyBusy);
+    m_preset->setEnabled(!anyBusy);
+    m_analyzeAudio->setEnabled(!anyBusy);
+    m_cancel->setEnabled(anyBusy);
+    if (anyBusy && m_client->isBusy()) {
         setStatus(i18n("Waiting for the AI provider…"));
     }
 }
