@@ -4,6 +4,7 @@
 set(kdenlive_SRCS
     ${kdenlive_SRCS}
     aieditor/aiproviderclient.cpp
+    aieditor/assistantdock.cpp
     aieditor/editplan.cpp
     aieditor/retimerangeexecutor.cpp
     PARENT_SCOPE

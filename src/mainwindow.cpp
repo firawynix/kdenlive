@@ -6,6 +6,7 @@ SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-KDE-Accepted-GPL
 
 #include "mainwindow.h"
 #include "assets/assetpanel.hpp"
+#include "aieditor/assistantdock.hpp"
 #include "audiomixer/mixermanager.hpp"
 #include "bin/clipcreator.hpp"
 #include "bin/generators/generators.h"
@@ -271,6 +272,10 @@ void MainWindow::init()
 
     auto dockRemap = addDock(i18n("Time Remapping"), QStringLiteral("timeremap"), pCore->timeRemapWidget(), KDDockWidgets::Location_OnRight);
     dockRemap->close();
+
+    auto *aiAssistant = new Kdenlive::AiEditor::AssistantDock(this);
+    auto aiAssistantDock = addDock(i18n("AI Editing Assistant"), QStringLiteral("ai_editing_assistant"), aiAssistant, KDDockWidgets::Location_OnRight);
+    aiAssistantDock->close();
 
     connect(pCore.get(), &Core::remapClip, this, [&, dockRemap](int id) {
         if (id > -1) {

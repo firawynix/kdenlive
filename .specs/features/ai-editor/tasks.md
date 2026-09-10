@@ -101,13 +101,18 @@ authentication and structured-output envelopes, valid responses from both API
 families, missing credentials, timeout, cancellation, HTTP errors, and unsafe
 plans (1/1 passing).
 
-### T7: Add assistant dock and preview
+### T7: Add assistant dock and preview ✅
 
 **What:** Implement prompt, plan preview, Apply, Cancel, and error states.
 **Depends on:** T5, T6.
 **Requirement:** AIE-05.
 
 **Done when:** no mutation occurs before Apply and the dock is registered in Kdenlive.
+
+**Verified:** The full `kdenlive.exe` target builds with the registered AI
+Editing Assistant dock. Provider/model selection, credential state,
+generate/cancel, human-readable preview, preflight, Apply, and Discard are
+separate states; only Apply invokes the timeline executor.
 
 ### T8: End-to-end acceptance and documentation
 
