@@ -19,7 +19,7 @@ T5 → T6 → T7 → T8
 
 ## Task Breakdown
 
-### T1: Define and parse the edit-plan contract
+### T1: Define and parse the edit-plan contract ✅
 
 **What:** Add the typed v1 `retime_range` plan model and strict JSON parser.
 **Where:** `src/aieditor/editplan.hpp`, `src/aieditor/editplan.cpp`, module CMake files.
@@ -33,7 +33,7 @@ T5 → T6 → T7 → T8
 - Invalid size, JSON, version, operation count/type, and numeric fields return actionable errors.
 - Source is registered in `kdenliveLib`.
 
-### T2: Test the edit-plan contract
+### T2: Test the edit-plan contract ⚠️
 
 **What:** Add parser contract tests to the existing Catch suite.
 **Where:** `tests/aieditorplannertest.cpp`, `tests/CMakeLists.txt`.
@@ -44,6 +44,8 @@ T5 → T6 → T7 → T8
 
 - Tests cover the valid 120s→40s case at 25 fps and all specified rejection categories.
 - Test target configures in a supported build environment.
+
+**Current:** Test source is complete; execution awaits a Qt/KDE/MLT build environment.
 
 ### T3: Implement retime preflight
 
@@ -100,4 +102,3 @@ T5 → T6 → T7 → T8
 - Diagram: Mermaid Studio validation/rendering.
 - Provider reference: official OpenRouter documentation.
 - Source control: Git and connected GitHub repository.
-

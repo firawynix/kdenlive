@@ -15,7 +15,9 @@
 
 - Fork and local partial clone created.
 - Upstream remote points to `KDE/kdenlive`.
-- Brownfield mapping and AI editor specification are being established.
+- Brownfield mapping, specification, design, and task plan are committed.
+- Typed `retime_range` edit-plan parser and contract tests are committed and pushed.
+- Next task after build verification: T3 retime preflight.
 
 ## Deferred Ideas
 
@@ -26,5 +28,5 @@
 
 ## Blockers
 
-- A full Windows build requires a KDE Craft environment; availability is not yet verified.
+- This Windows machine has no CMake, C++ compiler, Qt, KDE Frameworks, or KDE Craft environment, so the new C++ tests cannot yet run locally.
 

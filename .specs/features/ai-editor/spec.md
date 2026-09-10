@@ -81,8 +81,8 @@ Precise timeline edits often require several mechanical operations even when the
 
 | Requirement ID | Story | Status |
 | --- | --- | --- |
-| AIE-01 | Safe AI plan ingestion | Implementing |
-| AIE-02 | Deterministic retime math | Implementing |
+| AIE-01 | Safe AI plan ingestion | Implemented; build verification pending |
+| AIE-02 | Deterministic retime math | Implemented; build verification pending |
 | AIE-03 | Exact-duration range execution | Pending |
 | AIE-04 | Atomic undo/redo | Pending |
 | AIE-05 | Review before Apply | Pending |
@@ -96,4 +96,3 @@ Precise timeline edits often require several mechanical operations even when the
 - [ ] A 120-second range targeting 40 seconds yields exactly 3× before frame rounding.
 - [ ] Invalid model output cannot invoke timeline APIs.
 - [ ] The complete P1 flow is previewable, cancellable, and undoable.
-
