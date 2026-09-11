@@ -56,6 +56,7 @@ public:
     static BuiltAiRequest buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey);
     static BuiltAiRequest buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
                                        double fps, const QString &transcript = QString(), bool allowEmptyPlan = false);
+    static QByteArray normalizeLocalPlan(const QByteArray &planJson);
     static AiProviderResponse parseSuccessfulResponse(AiProvider provider, const QByteArray &payload, bool allowEmptyPlan = false);
     static AiProviderResponse completeResponse(AiProvider provider, int httpStatus, QNetworkReply::NetworkError networkError, bool wasCancelled,
                                                const QByteArray &payload, bool allowEmptyPlan = false);

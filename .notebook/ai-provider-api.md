@@ -59,3 +59,11 @@ reversed frame pair and removes zero-length operations before the complete plan
 is parsed again by the same strict safety validator. Ollama reasoning output is
 disabled for this schema-constrained classification task to reduce per-segment
 latency; the final plan still requires local validation and explicit Apply.
+Overlapping local mute ranges are merged. A retime range that crosses muted
+speech, or a later retime that conflicts with an accepted one, is omitted as
+ambiguous; the strict parser then validates the normalized fragment again.
+The same normalization is repeated when saved fragments are combined, which
+also handles cross-segment conflicts created before this recovery existed.
+The strict combined-plan ceiling is 4,096 operations (still bounded by the
+256-KiB payload limit), while each provider response remains schema-limited to
+256. This supports long recordings without weakening the per-request boundary.

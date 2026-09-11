@@ -86,11 +86,21 @@ TEST_CASE("Unsafe AI edit plans are rejected before execution", "[AIEditor][Edit
         REQUIRE_FALSE(parseEditPlan(R"({"version":1,"operations":[]})").isValid());
 
         QByteArray operations;
-        for (int index = 0; index < 257; ++index) {
+        for (int index = 0; index < 300; ++index) {
             if (!operations.isEmpty()) {
                 operations.append(',');
             }
-            operations.append(R"({"type":"retime_range","start_frame":0,"end_frame":2,"target_duration_frames":1})");
+            operations.append(QByteArray(R"({"type":"mute_range","start_frame":%1,"end_frame":%2})")
+                                  .replace("%1", QByteArray::number(index * 2))
+                                  .replace("%2", QByteArray::number(index * 2 + 1)));
+        }
+        REQUIRE(parseEditPlan(QByteArray("{\"version\":1,\"operations\":[") + operations + "]}").isValid());
+
+        for (int index = 300; index < 4097; ++index) {
+            operations.append(',');
+            operations.append(QByteArray(R"({"type":"mute_range","start_frame":%1,"end_frame":%2})")
+                                  .replace("%1", QByteArray::number(index * 2))
+                                  .replace("%2", QByteArray::number(index * 2 + 1)));
         }
         REQUIRE_FALSE(parseEditPlan(QByteArray("{\"version\":1,\"operations\":[") + operations + "]}").isValid());
     }

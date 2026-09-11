@@ -200,3 +200,28 @@ TEST_CASE("Local Ollama chunk responses safely normalize reversed or empty range
     REQUIRE(result.plan.operations.constFirst().muteRange.startFrame == 200);
     REQUIRE(result.plan.operations.constFirst().muteRange.endFrame == 300);
 }
+
+TEST_CASE("Local Ollama chunk responses consolidate overlapping operations", "[AIEditor][Provider][Local]")
+{
+    const QByteArray plan = R"({"version":1,"operations":[
+        {"type":"mute_range","start_frame":100,"end_frame":200},
+        {"type":"mute_range","start_frame":150,"end_frame":250},
+        {"type":"retime_range","start_frame":120,"end_frame":180,"target_duration_frames":10,"preserve_pitch":true},
+        {"type":"retime_range","start_frame":300,"end_frame":500,"target_duration_frames":20,"preserve_pitch":true},
+        {"type":"retime_range","start_frame":450,"end_frame":550,"target_duration_frames":10,"preserve_pitch":true}
+    ]})";
+    const auto result = AiProviderClient::completeResponse(AiProvider::Ollama, 200, QNetworkReply::NoError, false, ollamaResponse(plan), true);
+    INFO(result.error.toStdString());
+    REQUIRE(result.isValid());
+    REQUIRE(result.plan.operations.size() == 2);
+    REQUIRE(result.plan.operations.at(0).type == EditOperationType::MuteRange);
+    REQUIRE(result.plan.operations.at(0).muteRange.startFrame == 100);
+    REQUIRE(result.plan.operations.at(0).muteRange.endFrame == 250);
+    REQUIRE(result.plan.operations.at(1).type == EditOperationType::RetimeRange);
+    REQUIRE(result.plan.operations.at(1).retimeRange.startFrame == 300);
+    REQUIRE(result.plan.operations.at(1).retimeRange.endFrame == 500);
+
+    const auto combined = parseEditPlan(AiProviderClient::normalizeLocalPlan(plan), true);
+    REQUIRE(combined.isValid());
+    REQUIRE(combined.plan.operations.size() == 2);
+}

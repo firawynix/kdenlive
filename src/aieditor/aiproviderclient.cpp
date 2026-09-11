@@ -10,6 +10,8 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <algorithm>
+#include <utility>
 
 namespace Kdenlive {
 namespace AiEditor {
@@ -99,7 +101,7 @@ QByteArray extractApiError(const QByteArray &payload)
     return {};
 }
 
-QByteArray normalizeLocalChunkPlan(const QByteArray &planJson)
+QByteArray normalizeLocalPlanImpl(const QByteArray &planJson)
 {
     QJsonParseError error;
     const QJsonDocument document = QJsonDocument::fromJson(planJson, &error);
@@ -112,34 +114,80 @@ QByteArray normalizeLocalChunkPlan(const QByteArray &planJson)
         return planJson;
     }
 
-    QJsonArray normalized;
+    struct LocalOperation
+    {
+        QJsonObject object;
+        qint64 startFrame{0};
+        qint64 endFrame{0};
+    };
+    QVector<LocalOperation> muteOperations;
+    QVector<LocalOperation> retimeOperations;
     for (const QJsonValue &value : operationsValue.toArray()) {
         if (!value.isObject()) {
-            normalized.append(value);
-            continue;
+            return planJson;
         }
         QJsonObject operation = value.toObject();
         const QJsonValue startValue = operation.value(QStringLiteral("start_frame"));
         const QJsonValue endValue = operation.value(QStringLiteral("end_frame"));
         if (!startValue.isDouble() || !endValue.isDouble()) {
-            normalized.append(operation);
-            continue;
+            return planJson;
         }
-        const qint64 startFrame = startValue.toInteger(-1);
-        const qint64 endFrame = endValue.toInteger(-1);
+        qint64 startFrame = startValue.toInteger(-1);
+        qint64 endFrame = endValue.toInteger(-1);
         if (startFrame < 0 || endFrame < 0) {
-            normalized.append(operation);
-            continue;
+            return planJson;
         }
         if (startFrame == endFrame) {
             // A zero-length edit changes nothing and is safe to omit.
             continue;
         }
         if (endFrame < startFrame) {
-            operation.insert(QStringLiteral("start_frame"), endFrame);
-            operation.insert(QStringLiteral("end_frame"), startFrame);
+            std::swap(startFrame, endFrame);
+            operation.insert(QStringLiteral("start_frame"), startFrame);
+            operation.insert(QStringLiteral("end_frame"), endFrame);
         }
-        normalized.append(operation);
+        const QString type = operation.value(QStringLiteral("type")).toString();
+        if (type == QLatin1String("mute_range")) {
+            muteOperations.push_back({operation, startFrame, endFrame});
+        } else if (type == QLatin1String("retime_range")) {
+            retimeOperations.push_back({operation, startFrame, endFrame});
+        } else {
+            return planJson;
+        }
+    }
+
+    const auto byStartFrame = [](const LocalOperation &left, const LocalOperation &right) { return left.startFrame < right.startFrame; };
+    std::stable_sort(muteOperations.begin(), muteOperations.end(), byStartFrame);
+    QVector<LocalOperation> mergedMutes;
+    for (const LocalOperation &operation : std::as_const(muteOperations)) {
+        if (mergedMutes.isEmpty() || operation.startFrame > mergedMutes.constLast().endFrame) {
+            mergedMutes.push_back(operation);
+            continue;
+        }
+        LocalOperation &previous = mergedMutes.last();
+        previous.endFrame = qMax(previous.endFrame, operation.endFrame);
+        previous.object.insert(QStringLiteral("end_frame"), previous.endFrame);
+    }
+
+    std::stable_sort(retimeOperations.begin(), retimeOperations.end(), byStartFrame);
+    QVector<LocalOperation> acceptedRetimes;
+    for (const LocalOperation &operation : std::as_const(retimeOperations)) {
+        const bool crossesSpeech = std::any_of(mergedMutes.cbegin(), mergedMutes.cend(), [&operation](const LocalOperation &mute) {
+            return operation.startFrame < mute.endFrame && mute.startFrame < operation.endFrame;
+        });
+        if (crossesSpeech || (!acceptedRetimes.isEmpty() && operation.startFrame < acceptedRetimes.constLast().endFrame)) {
+            // Conflicting speed changes are ambiguous. Keeping the earlier valid range is safer than inventing a split.
+            continue;
+        }
+        acceptedRetimes.push_back(operation);
+    }
+
+    QVector<LocalOperation> accepted = mergedMutes;
+    accepted += acceptedRetimes;
+    std::stable_sort(accepted.begin(), accepted.end(), byStartFrame);
+    QJsonArray normalized;
+    for (const LocalOperation &operation : std::as_const(accepted)) {
+        normalized.append(operation.object);
     }
     root.insert(QStringLiteral("operations"), normalized);
     return QJsonDocument(root).toJson(QJsonDocument::Compact);
@@ -346,7 +394,7 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
 
     result.planJson = content.toUtf8();
     if (provider == AiProvider::Ollama && allowEmptyPlan) {
-        result.planJson = normalizeLocalChunkPlan(result.planJson);
+        result.planJson = normalizeLocalPlan(result.planJson);
     }
     const auto parsed = parseEditPlan(result.planJson, allowEmptyPlan);
     if (!parsed.isValid()) {
@@ -358,6 +406,11 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     }
     result.plan = parsed.plan;
     return result;
+}
+
+QByteArray AiProviderClient::normalizeLocalPlan(const QByteArray &planJson)
+{
+    return normalizeLocalPlanImpl(planJson);
 }
 
 AiProviderResponse AiProviderClient::completeResponse(AiProvider provider, int httpStatus, QNetworkReply::NetworkError networkError, bool wasCancelled,

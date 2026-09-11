@@ -608,8 +608,11 @@ void AssistantDock::finishChunkedPlan()
             }
         }
     }
-    const QByteArray completePlan =
+    QByteArray completePlan =
         QJsonDocument(QJsonObject{{QStringLiteral("version"), 1}, {QStringLiteral("operations"), operations}}).toJson(QJsonDocument::Compact);
+    if (m_checkpoint.provider == AiProvider::Ollama) {
+        completePlan = AiProviderClient::normalizeLocalPlan(completePlan);
+    }
     const auto parsed = parseEditPlan(completePlan, true);
     if (!parsed.isValid()) {
         setStatus(i18n("The combined AI plan is unsafe: %1 Progress remains saved.", parsed.error), true);

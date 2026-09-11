@@ -18,7 +18,7 @@ namespace AiEditor {
 
 namespace {
 constexpr qsizetype MaxPlanSize = 256 * 1024;
-constexpr qsizetype MaxOperationCount = 256;
+constexpr qsizetype MaxOperationCount = 4096;
 
 bool readFrame(const QJsonObject &object, const QString &name, int minimum, int &result, QString &error)
 {
@@ -136,8 +136,8 @@ EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty)
 
     const QJsonArray operations = operationsValue.toArray();
     if ((!allowEmpty && operations.isEmpty()) || operations.size() > MaxOperationCount) {
-        result.error = allowEmpty ? QStringLiteral("Edit plan must contain at most 256 operations.")
-                                  : QStringLiteral("Edit plan must contain between 1 and 256 operations.");
+        result.error = allowEmpty ? QStringLiteral("Edit plan must contain at most 4096 operations.")
+                                  : QStringLiteral("Edit plan must contain between 1 and 4096 operations.");
         return result;
     }
 
