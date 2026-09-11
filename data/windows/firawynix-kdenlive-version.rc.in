@@ -1,0 +1,31 @@
+#include <windows.h>
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION @KDENLIVE_WINDOWS_VERSION@
+ PRODUCTVERSION @KDENLIVE_WINDOWS_VERSION@
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "Firawynix / KDE Community\0"
+            VALUE "FileDescription", "Firawynix - Kdenlive\0"
+            VALUE "FileVersion", "@KDENLIVE_VERSION@\0"
+            VALUE "InternalName", "firawynix-kdenlive\0"
+            VALUE "LegalCopyright", "Copyright (C) Kdenlive authors and Firawynix contributors. GPL-3.0-or-later.\0"
+            VALUE "OriginalFilename", "firawynix-kdenlive.exe\0"
+            VALUE "ProductName", "Firawynix - Kdenlive\0"
+            VALUE "ProductVersion", "@KDENLIVE_VERSION@\0"
+            VALUE "Comments", "Independent Firawynix fork based on KDE Kdenlive.\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

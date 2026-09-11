@@ -2,6 +2,13 @@
 
 # Kdenlive
 
+> **Firawynix - Kdenlive** é uma distribuição independente baseada no Kdenlive,
+> com assistente de edição por IA local ou por API, prompts reutilizáveis e fluxo
+> de revisão antes de alterar a linha do tempo. Código do fork:
+> [firawynix/kdenlive](https://github.com/firawynix/kdenlive). Projeto original:
+> [KDE/Kdenlive](https://github.com/KDE/kdenlive). O projeto continua sob a GPL e
+> preserva os créditos dos autores do Kdenlive.
+
 Kdenlive is a powerful, free and open-source video editor that brings professional-grade video editing capabilities to everyone. Whether you're creating a simple family video or working on a complex project, Kdenlive provides the tools you need to bring your vision to life.
 
 For more information about Kdenlive's features, tutorials, and community, please visit our [official website](https://kdenlive.org).
@@ -53,5 +60,9 @@ Need help getting started? Join our Matrix channel `#kdenlive-dev:kde.org` - our
 
 This fork's review-first OpenRouter, OpenAI, and Anthropic integration is
 documented in [AI Editing Assistant](dev-docs/ai-editor.md).
+
+The Windows installer, auto-update launcher, and release process are documented
+in [Firawynix Windows packaging](packaging/windows/README-FIRAWYNIX.md). The
+interactive product website lives in [website](website/README.md).
 
 Please get in touch with us before working on a task, either by commenting in the issue or through our Matrix channel.

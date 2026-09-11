@@ -8,3 +8,4 @@ Last updated: 2026-09-11
 - [ai-retime-execution](ai-retime-execution.md) — Safe range isolation, ripple, and one-step undo | flow | timeline, AI, undo
 - [ai-provider-api](ai-provider-api.md) — Cloud provider adapters, local Ollama, and credential/privacy boundary | integration | AI, API, security
 - [ai-semantic-cleanup](ai-semantic-cleanup.md) — Local Whisper, transcript privacy, mute ranges, and atomic multi-edit plans | flow | AI, audio, Whisper, undo
+- [windows-distribution](windows-distribution.md) — Firawynix branding, PT-BR catalog routing, installer, updater, and demo site | setup | windows, packaging, website

@@ -205,8 +205,21 @@ set(ICON_FILES
 )
 ecm_add_app_icon(kdenlive ICONS ${ICON_FILES})
 
+if(WIN32)
+    string(REPLACE "." "," KDENLIVE_WINDOWS_VERSION "${KDENLIVE_VERSION}")
+    set(KDENLIVE_WINDOWS_VERSION "${KDENLIVE_WINDOWS_VERSION},0")
+    configure_file(
+        ${CMAKE_CURRENT_SOURCE_DIR}/../data/windows/firawynix-kdenlive-version.rc.in
+        ${CMAKE_CURRENT_BINARY_DIR}/firawynix-kdenlive-version.rc
+        @ONLY)
+    list(APPEND kdenlive_extra_SRCS ${CMAKE_CURRENT_BINARY_DIR}/firawynix-kdenlive-version.rc)
+endif()
+
 ## Kdenlive Executable
 qt_add_executable(kdenlive MACOSX_BUNDLE main.cpp ${kdenlive_extra_SRCS} ${kdenlive})
+if(WIN32)
+    set_target_properties(kdenlive PROPERTIES OUTPUT_NAME "firawynix-kdenlive")
+endif()
 target_include_directories(kdenlive
     PRIVATE ${CMAKE_BINARY_DIR}
     )

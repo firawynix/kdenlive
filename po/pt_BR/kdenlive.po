@@ -48164,6 +48164,12 @@ msgstr "Falha no teste de conexão (HTTP %1)."
 msgid "Connection test failed (HTTP %1): %2"
 msgstr "Falha no teste de conexão (HTTP %1): %2"
 
+msgid "Firawynix - Kdenlive is an independently maintained fork based on the Kdenlive project. Kdenlive attribution, copyright, and GPL licensing are preserved. Upstream information: <a href=\"%1\">%1</a>"
+msgstr "Firawynix - Kdenlive é um fork mantido de forma independente e baseado no projeto Kdenlive. A atribuição, os direitos autorais e a licença GPL do Kdenlive são preservados. Informações do projeto original: <a href=\"%1\">%1</a>"
+
+msgid "An AI-assisted open source video editor based on Kdenlive."
+msgstr "Um editor de vídeo de código aberto com assistência de IA, baseado no Kdenlive."
+
 msgid "Could not create the local AI checkpoint folder."
 msgstr "Não foi possível criar a pasta local de recuperação da IA."
 

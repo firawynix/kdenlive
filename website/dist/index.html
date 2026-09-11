@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Demonstração interativa do Firawynix - Kdenlive, editor de vídeo com assistência de IA local e por API.">
+  <title>Firawynix - Kdenlive</title>
+  <link rel="icon" type="image/png" href="assets/firawynix-kdenlive.png">
+  <style>
+    :root{
+      color-scheme:dark;--page:#080b10;--panel:#11151c;--panel2:#161b22;--field:#1e242d;
+      --line:#293442;--ink:#f3f7fb;--muted:#9ca8b7;--cyan:#22d3ee;--cyan2:#0891b2;
+      --blue:#4f91df;--coral:#ff766d;--guide:#ffb454;--shadow:0 28px 80px #0009;
+      --ui:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+      --display:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+    }
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:
+      radial-gradient(900px 520px at 22% -10%,#0d405355,transparent 65%),var(--page);color:var(--ink);font:16px/1.55 var(--ui)}
+    a{color:inherit}.shell{width:min(1480px,calc(100% - 40px));margin:auto}
+    header{height:78px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff12}
+    .brand{display:flex;align-items:center;gap:13px;text-decoration:none;font:700 18px var(--display)}
+    .brand img{width:42px;height:42px}.brand small{display:block;color:var(--muted);font:500 11px var(--ui);letter-spacing:.08em;text-transform:uppercase}
+    nav{display:flex;gap:8px;align-items:center}nav a,.button{border:1px solid transparent;border-radius:7px;padding:9px 14px;text-decoration:none;font-weight:650;font-size:14px}
+    nav a:hover{background:#ffffff0b}.button.primary{background:var(--cyan);color:#06161e}.button.outline{border-color:var(--line)}
+    .intro{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(310px,.85fr);gap:68px;align-items:center;padding:72px 0 54px}
+    .eyebrow{color:var(--cyan);font:700 12px var(--ui);letter-spacing:.15em;text-transform:uppercase}
+    h1{font:760 clamp(42px,6.5vw,84px)/.98 var(--display);letter-spacing:-.055em;margin:14px 0 24px;max-width:840px}
+    h1 span{color:var(--cyan)}.lead{font-size:19px;color:#c9d3de;max-width:730px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:30px}
+    .facts{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+    .fact{background:var(--panel);padding:22px}.fact strong{display:block;font-size:24px;color:var(--cyan)}.fact span{color:var(--muted);font-size:13px}
+    .identity{position:relative;min-height:390px;display:grid;place-items:center}.identity:before{content:"";position:absolute;inset:7%;background:radial-gradient(circle,#22d3ee27,transparent 67%);filter:blur(18px)}
+    .identity img{width:min(360px,82%);position:relative;filter:drop-shadow(0 30px 45px #000b)}
+    .demo{scroll-margin-top:18px;padding:56px 0 80px}.section-head{display:flex;justify-content:space-between;align-items:end;gap:30px;margin-bottom:24px}
+    h2{font:750 clamp(30px,4vw,52px)/1.05 var(--display);letter-spacing:-.035em;margin:0}.section-head p{max-width:560px;color:var(--muted);margin:0}
+    .tour{display:grid;grid-template-columns:minmax(0,1fr) 355px;min-height:720px;border:1px solid var(--line);background:var(--panel);box-shadow:var(--shadow)}
+    .stage{min-width:0;background:#0d1118;padding:24px;display:flex;flex-direction:column;gap:17px;overflow:hidden}
+    .window{flex:1;border:1px solid #34404e;background:#191f28;box-shadow:0 25px 65px #0008;display:grid;grid-template-rows:42px 1fr}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;padding:0 13px;background:#202630;border-bottom:1px solid #313c49;font-size:12px}
+    .titlebar span{display:flex;align-items:center;gap:8px}.titlebar img{width:22px;height:22px}.dots{color:#778495;letter-spacing:6px}
+    .workspace{display:grid;grid-template-columns:330px 1fr;min-height:0}.assistant{padding:16px;border-right:1px solid #313c49;background:#141a22;font-size:12px;overflow:hidden}
+    .assistant h3{font-size:13px;margin:0 0 14px}.form-row{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:7px;margin:8px 0}.control{height:29px;border:1px solid #394654;background:#202833;padding:5px 8px;color:#dce6ef;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .privacy{font-size:10.5px;color:#a9b5c3;line-height:1.35;padding:8px 0}.box{border:1px solid #344150;background:#111720;padding:10px;margin:9px 0}.box b{display:block;color:#cfe4ed;margin-bottom:7px}
+    .meter{height:7px;background:#28313c;margin:8px 0}.meter i{display:block;width:80%;height:100%;background:linear-gradient(90deg,var(--cyan2),var(--cyan))}
+    .buttons{display:grid;grid-template-columns:1fr 1fr;gap:7px}.btn{border:1px solid #3a4755;background:#202833;color:#dbe6ef;padding:7px;text-align:center}.btn.hot{border-color:var(--cyan);color:var(--cyan)}.btn.wide{grid-column:1/-1}
+    .prompt{height:116px;white-space:normal;line-height:1.35}.check{margin:8px 0;color:#d2dbe4}.check:before{content:"✓";color:#06161e;background:var(--cyan);margin-right:7px;padding:0 3px}
+    .timeline{display:grid;grid-template-rows:1fr 225px;min-width:0}.monitors{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#39404a}.monitor{display:grid;place-items:center;background:#090c11;position:relative;color:#6f7d8d}.monitor:after{content:"00:46:30:53";position:absolute;bottom:10px;right:12px;color:var(--cyan);font:11px monospace}.monitor img{width:78px;opacity:.65}
+    .tracks{background:#121820;border-top:1px solid #313c49;padding:24px 18px 10px;position:relative}.ruler{position:absolute;top:7px;left:18px;right:18px;height:8px;background:repeating-linear-gradient(90deg,#65717d 0 1px,transparent 1px 52px);opacity:.55}
+    .track{height:44px;margin:6px 0;border:1px solid #247ea0;background:repeating-linear-gradient(90deg,#1773a9 0 87px,#153247 87px 91px);position:relative}.track.audio{border-color:#218c75;background:repeating-linear-gradient(90deg,#14705f 0 70px,#15322f 70px 74px)}.track.audio:after{content:"";position:absolute;left:0;right:0;top:20px;height:3px;background:repeating-linear-gradient(90deg,#42d2a9 0 9px,transparent 9px 14px);opacity:.65}
+    .playhead{position:absolute;left:66%;top:0;bottom:0;width:1px;background:#fff}.playhead:before{content:"";position:absolute;top:0;left:-5px;border:5px solid transparent;border-top-color:#fff}
+    .guide{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}.guide-top{padding:24px 24px 18px}.guide-top .count{font:12px monospace;color:var(--guide)}.guide-top h3{font:720 25px var(--display);margin:8px 0}.guide-top p{color:var(--muted);font-size:14px;margin:0}
+    .steps{border-top:1px solid var(--line);flex:1}.step{width:100%;display:grid;grid-template-columns:34px 1fr;gap:11px;padding:16px 22px;border:0;border-bottom:1px solid var(--line);border-left:3px solid transparent;background:transparent;color:inherit;text-align:left;cursor:pointer}.step:hover{background:#ffffff08}.step.on{border-left-color:var(--guide);background:#ffb4540d}.n{width:28px;height:28px;display:grid;place-items:center;border:1px solid #465363;color:var(--muted);font:12px monospace}.step.on .n{background:var(--guide);border-color:var(--guide);color:#1b1408}.step b{display:block;font-size:14px}.step small{color:var(--muted);font-size:12px}
+    .guide-nav{display:flex;gap:8px;padding:16px 22px}.guide-nav button{flex:1;border:1px solid var(--line);background:transparent;color:var(--ink);padding:10px;cursor:pointer}.guide-nav .next{background:var(--guide);color:#1b1408;border-color:var(--guide);font-weight:750}
+    .features{padding:70px 0}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:28px}.card{border:1px solid var(--line);background:var(--panel);padding:23px;min-height:190px}.card .icon{color:var(--cyan);font:22px monospace}.card h3{margin:28px 0 8px}.card p{font-size:14px;color:var(--muted);margin:0}
+    footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:13px}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:24px}.links{display:flex;gap:16px;flex-wrap:wrap}.links a{color:#dce6ef}
+    @media(max-width:1050px){.intro{grid-template-columns:1fr}.identity{display:none}.tour{grid-template-columns:1fr}.guide{border-left:0;border-top:1px solid var(--line)}.workspace{grid-template-columns:300px 1fr}.cards{grid-template-columns:1fr 1fr}}
+    @media(max-width:720px){.shell{width:min(100% - 24px,1480px)}header{height:auto;padding:14px 0}nav a:not(.button){display:none}.intro{padding:48px 0}.facts{grid-template-columns:1fr}.section-head{display:block}.section-head p{margin-top:14px}.tour{min-height:0}.stage{padding:10px;overflow:auto}.window{width:950px;min-height:590px}.guide{min-height:620px}.cards{grid-template-columns:1fr}.footer-row{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <header class="shell">
+    <a class="brand" href="#top"><img src="assets/firawynix-kdenlive.png" alt=""><span>Firawynix - Kdenlive<small>Editor de vídeo com IA</small></span></a>
+    <nav aria-label="Navegação principal"><a href="#demo">Demonstração</a><a href="#recursos">Recursos</a><a class="button outline" href="https://github.com/firawynix/kdenlive" target="_blank" rel="noreferrer">GitHub</a></nav>
+  </header>
+
+  <main id="top">
+    <section class="intro shell">
+      <div>
+        <div class="eyebrow">Edição por intenção, controle humano no final</div>
+        <h1>Descreva a edição. A IA <span>monta o plano.</span></h1>
+        <p class="lead">Um fork do Kdenlive que combina transcrição local, modelos no seu computador e provedores por API. A mídia não precisa sair da máquina e nenhuma alteração acontece sem sua aprovação.</p>
+        <div class="actions"><a class="button primary" href="#demo">Ver demonstração</a><a class="button outline" href="https://github.com/firawynix/kdenlive/releases" target="_blank" rel="noreferrer">Baixar para Windows</a></div>
+        <div class="facts" style="margin-top:38px"><div class="fact"><strong>Local</strong><span>Whisper e Ollama no computador</span></div><div class="fact"><strong>4</strong><span>OpenRouter, OpenAI, Claude e Ollama</span></div><div class="fact"><strong>1 clique</strong><span>Desfazer restaura a timeline</span></div></div>
+      </div>
+      <div class="identity"><img src="assets/firawynix-kdenlive.png" alt="Ícone do Firawynix - Kdenlive"></div>
+    </section>
+
+    <section class="demo shell" id="demo">
+      <div class="section-head"><h2>Da reunião bruta ao plano revisável</h2><p>Explore o fluxo real do assistente. Use os passos à direita, as setas do teclado ou os botões abaixo.</p></div>
+      <div class="tour">
+        <div class="stage" aria-label="Simulação do aplicativo">
+          <div class="window">
+            <div class="titlebar"><span><img src="assets/firawynix-kdenlive.png" alt="">salvohj — Firawynix - Kdenlive</span><span class="dots">— □ ×</span></div>
+            <div class="workspace">
+              <aside class="assistant">
+                <h3>Assistente de edição com IA</h3>
+                <div class="form-row"><span>Provedor:</span><div class="control" id="provider">IA local (Ollama)</div></div>
+                <div class="form-row"><span>Modelo:</span><div class="control" id="model">qwen3:14b</div></div>
+                <p class="privacy" id="privacy">A transcrição e a solicitação permanecem neste computador. Nenhuma chave de API é necessária.</p>
+                <div class="box" id="setup"><b>Configuração da IA local</b><span>32 threads · 127,9 GiB · Radeon RX 9060 XT</span><div class="btn wide hot" style="margin-top:8px">Modelo local pronto</div></div>
+                <div class="box"><b>Desempenho</b><span>Limite de recursos: 80%</span><div class="meter"><i></i></div></div>
+                <div class="form-row"><span>Prompt:</span><div class="control" id="preset">Limpar reunião de trabalho</div></div>
+                <div class="buttons"><div class="btn">Salvar prompt</div><div class="btn">Excluir prompt</div><div class="btn wide hot" id="suggest">Sugerir prompts pela transcrição</div></div>
+                <div class="control prompt" id="prompt" style="margin-top:10px">Silencie conversas fora do assunto. Comprima intervalos longos sem diálogo e preserve o tom do áudio.</div>
+                <div class="check">Analisar áudio localmente com Whisper</div>
+                <div class="buttons"><div class="btn hot" id="generate">Gerar plano</div><div class="btn">Cancelar</div></div>
+                <div class="box" id="preview"><b>Prévia do plano</b><span>As alterações propostas aparecerão aqui. Nada muda até você escolher Aplicar.</span></div>
+              </aside>
+              <div class="timeline"><div class="monitors"><div class="monitor"><img src="assets/firawynix-kdenlive.png" alt=""></div><div class="monitor"><img src="assets/firawynix-kdenlive.png" alt=""></div></div><div class="tracks"><div class="ruler"></div><div class="playhead"></div><div class="track"></div><div class="track audio"></div><div class="track audio"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <aside class="guide">
+          <div class="guide-top"><span class="count" id="count">PASSO 1 DE 5</span><h3 id="step-title">Escolha onde a IA trabalha</h3><p id="step-copy">Use a IA local sem limite por API ou conecte OpenRouter, OpenAI e Anthropic com a sua própria chave.</p></div>
+          <div class="steps" id="steps"></div>
+          <div class="guide-nav"><button id="prev">Anterior</button><button class="next" id="next">Próximo</button></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="features shell" id="recursos">
+      <div class="section-head"><h2>Feito para vídeos longos</h2><p>O trabalho demorado fica dividido em etapas recuperáveis, com progresso visível e revisão antes da aplicação.</p></div>
+      <div class="cards"><article class="card"><span class="icon">01</span><h3>Retomada local</h3><p>Transcrição e segmentos concluídos são salvos para continuar sem começar novamente.</p></article><article class="card"><span class="icon">02</span><h3>Modelo recomendado</h3><p>CPU, memória, GPU e VRAM orientam a escolha e o download do modelo local.</p></article><article class="card"><span class="icon">03</span><h3>Prompts reutilizáveis</h3><p>Crie, salve, atualize e exclua instruções próprias para cada tipo de gravação.</p></article><article class="card"><span class="icon">04</span><h3>Plano seguro</h3><p>Operações incompatíveis são descartadas e o usuário decide quando aplicar.</p></article></div>
+    </section>
+  </main>
+
+  <footer><div class="footer-row shell"><span>Firawynix - Kdenlive é um fork independente sob GPL, baseado no trabalho da comunidade KDE.</span><div class="links"><a href="https://github.com/KDE/kdenlive" target="_blank" rel="noreferrer">Projeto original: KDE/Kdenlive</a><a href="https://github.com/firawynix/kdenlive" target="_blank" rel="noreferrer">Fork: firawynix/kdenlive</a><a href="https://kdenlive.org" target="_blank" rel="noreferrer">kdenlive.org</a></div></div></footer>
+
+  <script>
+    const tourSteps=[
+      {title:"Escolha onde a IA trabalha",copy:"Use a IA local sem limite por API ou conecte OpenRouter, OpenAI e Anthropic com a sua própria chave.",target:"provider",detail:"Provedor e modelo"},
+      {title:"Descreva ou reutilize",copy:"Selecione um prompt pronto, escreva uma instrução própria e salve o que quiser usar nas próximas reuniões.",target:"prompt",detail:"Biblioteca de prompts"},
+      {title:"Peça sugestões",copy:"Com o campo em branco, a IA percorre a transcrição completa e propõe instruções coerentes com os assuntos e silêncios encontrados.",target:"suggest",detail:"Contexto da transcrição"},
+      {title:"Revise o plano",copy:"Gerar plano transforma a intenção em operações com tempos exatos. A timeline ainda não é alterada.",target:"preview",detail:"Prévia antes de editar"},
+      {title:"Aplique quando estiver pronto",copy:"Só o botão Aplicar modifica a timeline. A edição inteira entra como uma ação e pode ser desfeita de uma vez.",target:"generate",detail:"Controle permanece seu"}
+    ];
+    let current=0;const steps=document.querySelector("#steps");
+    tourSteps.forEach((s,i)=>{const b=document.createElement("button");b.className="step";b.innerHTML=`<span class="n">${i+1}</span><span><b>${s.title}</b><small>${s.detail}</small></span>`;b.onclick=()=>show(i);steps.appendChild(b)});
+    function show(index){current=(index+tourSteps.length)%tourSteps.length;const s=tourSteps[current];document.querySelector("#count").textContent=`PASSO ${current+1} DE ${tourSteps.length}`;document.querySelector("#step-title").textContent=s.title;document.querySelector("#step-copy").textContent=s.copy;document.querySelectorAll(".step").forEach((el,i)=>el.classList.toggle("on",i===current));document.querySelectorAll(".hot").forEach(el=>el.classList.remove("hot"));document.querySelector(`#${s.target}`)?.classList.add("hot")}
+    document.querySelector("#prev").onclick=()=>show(current-1);document.querySelector("#next").onclick=()=>show(current+1);addEventListener("keydown",e=>{if(e.key==="ArrowRight")show(current+1);if(e.key==="ArrowLeft")show(current-1)});show(0);
+  </script>
+</body>
+</html>

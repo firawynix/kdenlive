@@ -283,6 +283,12 @@ int main(int argc, char *argv[])
         KConfig::setMainConfigName(QStringLiteral("kdenlive-%1rc").arg(packageName));
     }
 
+    // Prefer the catalog shipped next to the Windows executable. This keeps
+    // fork-specific strings in sync with the selected application language,
+    // even when another Kdenlive catalog is installed on the system.
+#if defined(Q_OS_WIN)
+    KLocalizedString::addDomainLocaleDir("kdenlive", QCoreApplication::applicationDirPath() + QStringLiteral("/data/locale"));
+#endif
     KLocalizedString::setApplicationDomain("kdenlive");
 
     // Create KAboutData

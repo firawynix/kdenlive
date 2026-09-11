@@ -23,3 +23,16 @@ compile_commands.json
 
 # Artefacts from running KDE CI locally
 kde-ci-reports/*
+
+# Firawynix local distribution artifacts
+/dist/windows/stage/
+/dist/windows/launcher/
+/dist/windows/*.exe
+/dist/windows/*.sha256
+/dist/windows/update.json
+/packaging/windows/launcher/bin/
+/packaging/windows/launcher/obj/
+/website-site.tar.gz
+/website/.sites-git/
+/.notebook/assets/
+/.notebook/installed-pt_BR.po
