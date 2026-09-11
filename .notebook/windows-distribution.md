@@ -13,7 +13,8 @@ updated Brazilian Portuguese catalog.
 
 `packaging/windows/build-installer.ps1` publishes the self-contained .NET 8
 launcher, stages the KDE Craft portable dependencies, replaces the upstream
-editor binary and PT-BR catalog with the current build, then invokes Inno Setup.
+editor binary, PT-BR catalog, and installed Firawynix splash QML with the current
+build, then invokes Inno Setup.
 Generated stage, launcher, installer, checksum, and update metadata remain local
 build artifacts under `dist/windows`.
 
@@ -26,3 +27,9 @@ the update service is offline, unavailable, or skipped with `--no-update`.
 The static demonstration site is in `website/`. It uses its own Sites manifest
 and build output for publication, while the page credits and links both the
 Firawynix fork and the KDE/Kdenlive upstream project.
+
+The startup window is implemented in `src/dialogs/Splash.qml`. Firawynix visual
+identity is embedded through `src/icons.qrc`; the window keeps the KDE/Kdenlive
+credit and offers separate support links for the original project and the fork.
+It uses a dedicated Firawynix background asset while keeping the original
+upstream Kdenlive background untouched in the repository.

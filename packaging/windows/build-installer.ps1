@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "26.11.70-firaw.2",
+    [string]$Version = "26.11.70-firaw.3",
     [string]$BuildDirectory = "C:\_\3377f5a\build",
     [string]$CraftRoot = "C:\CraftRoot",
     [string]$PayloadArchive = ""
@@ -13,9 +13,13 @@ $launcherProject = Join-Path $PSScriptRoot "launcher\FirawynixKdenliveLauncher.c
 $launcherOutput = Join-Path $output "launcher"
 $editor = Join-Path $BuildDirectory "bin\firawynix-kdenlive.exe"
 $translation = Join-Path $BuildDirectory "locale\pt_BR\LC_MESSAGES\kdenlive.mo"
+$splashQml = Join-Path $CraftRoot "qml\org\kde\kdenlive\Splash.qml"
 
 if (-not (Test-Path -LiteralPath $editor)) {
     throw "Compile o Firawynix - Kdenlive antes de criar o instalador: $editor"
+}
+if (-not (Test-Path -LiteralPath $splashQml)) {
+    throw "A tela inicial instalada pelo build não foi encontrada: $splashQml"
 }
 
 New-Item -ItemType Directory -Path $output -Force | Out-Null
@@ -79,6 +83,7 @@ if ($nestedRoot -and -not (Test-Path (Join-Path $stage "bin"))) {
 New-Item -ItemType Directory -Path (Join-Path $stage "bin\data\locale\pt_BR\LC_MESSAGES") -Force | Out-Null
 Copy-Item -LiteralPath $editor -Destination (Join-Path $stage "bin\firawynix-kdenlive.exe") -Force
 Copy-Item -LiteralPath $translation -Destination (Join-Path $stage "bin\data\locale\pt_BR\LC_MESSAGES\kdenlive.mo") -Force
+Copy-Item -LiteralPath $splashQml -Destination (Join-Path $stage "qml\org\kde\kdenlive\Splash.qml") -Force
 Copy-Item -LiteralPath (Join-Path $launcherOutput "Firawynix-Kdenlive-Launcher.exe") -Destination (Join-Path $stage "Firawynix-Kdenlive-Launcher.exe") -Force
 $legacyEditor = Join-Path $stage "bin\kdenlive.exe"
 if (Test-Path -LiteralPath $legacyEditor) {

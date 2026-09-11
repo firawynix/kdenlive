@@ -48828,3 +48828,24 @@ msgstr "Alteração selecionada desfeita. Use o botão novamente para refazê-la
 
 msgid "Selected change reapplied."
 msgstr "Alteração selecionada reaplicada."
+
+msgid "Video editing with local and connected AI"
+msgstr "Edição de vídeo com IA local e conectada"
+
+msgid "Built on Kdenlive by the KDE community"
+msgstr "Baseado no Kdenlive da comunidade KDE"
+
+msgid "Support the projects that make this editor possible"
+msgstr "Apoie os projetos que tornam este editor possível"
+
+msgid "Support Kdenlive"
+msgstr "Apoiar o Kdenlive"
+
+msgid "Official Kdenlive donation page"
+msgstr "Página oficial de doação do Kdenlive"
+
+msgid "Support Firawynix"
+msgstr "Apoiar a Firawynix"
+
+msgid "Support Firawynix development"
+msgstr "Apoiar o desenvolvimento da Firawynix"

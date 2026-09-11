@@ -102,11 +102,11 @@ Window {
     Rectangle {
         id: splashContent
         anchors.fill: parent
-        implicitHeight: splash.crashRecovery || splash.wasUpgraded  ? newProjectButton.height * 20 : newProjectButton.height * 18
+        implicitHeight: newProjectButton.height * 20
         implicitWidth: newProjectButton.height * 17
         radius: 5
         border.width: 2
-        border.color: "#d7566e"
+        border.color: "#22d3ee"
         color: activePalette.window
         clip: true
         focus: true
@@ -201,9 +201,51 @@ Window {
                 anchors.fill: parent
                 anchors.margins: 5
                 anchors.bottomMargin: 10
-                source: "qrc:/pics/splash-background.webp"
+                source: "qrc:/pics/firawynix-splash-background.webp"
                 verticalAlignment: Image.AlignTop
                 fillMode: Image.PreserveAspectCrop
+
+                Rectangle {
+                    anchors.fill: parent
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0; color: "#e6080b10" }
+                        GradientStop { position: 0.58; color: "#99111f2d" }
+                        GradientStop { position: 1.0; color: "#220891b2" }
+                    }
+                }
+
+                Row {
+                    anchors.left: parent.left
+                    anchors.top: parent.top
+                    anchors.margins: 18
+                    spacing: 12
+
+                    Image {
+                        width: 72
+                        height: 72
+                        source: "qrc:/pics/firawynix-kdenlive.png"
+                        fillMode: Image.PreserveAspectFit
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 2
+
+                        Text {
+                            color: "#f3f7fb"
+                            text: "Firawynix - Kdenlive"
+                            font.pixelSize: 24
+                            font.bold: true
+                        }
+
+                        Text {
+                            color: "#bfeef5"
+                            text: KI18n.i18n("Video editing with local and connected AI")
+                            font.pixelSize: 12
+                        }
+                    }
+                }
 
                 Text {
                     id: kdelabel
@@ -211,7 +253,7 @@ Window {
                     anchors.right: parent.right
                     anchors.margins: 10
                     color: "#FFFFFF"
-                    text: KI18n.i18n("Made by KDE")
+                    text: KI18n.i18n("Built on Kdenlive by the KDE community")
                 }
 
                 // Made By KDE
@@ -629,7 +671,7 @@ Window {
                     id: kdenliveid
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    text: KI18n.i18n("Kdenlive") + " " + splash.version
+                    text: "Firawynix - Kdenlive " + splash.version
                 }
 
             }
@@ -638,7 +680,7 @@ Window {
                 visible: splash.crashRecovery
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.bottom: buttonBar.top
+                anchors.bottom: donateBar.top
                 anchors.margins: 10
                 height: Math.max(restartButton.height, restartLabel.height) + 10
                 Rectangle {
@@ -674,7 +716,7 @@ Window {
                 visible: splash.wasUpgraded && !splash.crashRecovery
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.bottom: buttonBar.top
+                anchors.bottom: donateBar.top
                 anchors.margins: 10
                 height: Math.max(notesButton.height, upgradedLabel.height) + 10
                 Rectangle {
@@ -717,11 +759,13 @@ Window {
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.bottom: buttonBar.top
-                height: donateText.height + 8
+                height: Math.max(donateText.implicitHeight, supportKdenlive.implicitHeight, supportFirawynix.implicitHeight) + 12
                 anchors.margins: 10
-                visible: splash.urls.length > 2 && !splash.crashRecovery && !upgradeBox.visible
+                visible: true
                 radius: 5
-                color: Qt.darker(splashContent.color, 1.5)
+                color: activePalette.window
+                border.width: 1
+                border.color: "#294552"
 
                 RowLayout {
                     anchors.right: parent.right
@@ -733,21 +777,28 @@ Window {
                         id: donateText
                         Layout.fillWidth: true
                         leftPadding: 10
-                        text: KI18n.i18n("Help us make Kdenlive even better")
+                        text: KI18n.i18n("Support the projects that make this editor possible")
                         wrapMode: Text.WordWrap
                     }
-                    ToolButton {
-                        icon.name: "user-group-new"
-                        text: KI18n.i18n("Contribute…")
+                    Button {
+                        id: supportKdenlive
+                        icon.name: "donate"
+                        text: KI18n.i18n("Support Kdenlive")
                         enabled: splash.actionsEnabled
-                        onClicked: splash.openLink("https://kdenlive.org/get-involved?utm_campaign=kdenlive_inapp&utm_term=splash_donatebar_contribute&utm_content=" + splash.version)
+                        ToolTip.text: KI18n.i18n("Official Kdenlive donation page")
+                        ToolTip.visible: hovered
+                        onClicked: splash.openLink("https://kdenlive.org/fund?utm_campaign=kdenlive_inapp&utm_term=splash_donatebar_donate&utm_content=" + splash.version)
                     }
 
-                    ToolButton {
-                        text: KI18n.i18n("Donate…")
+                    Button {
+                        id: supportFirawynix
+                        text: KI18n.i18n("Support Firawynix")
                         icon.name: "donate"
                         enabled: splash.actionsEnabled
-                        onClicked: splash.openLink("https://kdenlive.org/fund?utm_campaign=kdenlive_inapp&utm_term=splash_donatebar_donate&utm_content=" + splash.version)
+                        highlighted: true
+                        ToolTip.text: KI18n.i18n("Support Firawynix development")
+                        ToolTip.visible: hovered
+                        onClicked: splash.openLink("https://firawynix.com.br/apoie?de=kdenlive")
                         KeyNavigation.tab: listView
                     }
 
@@ -761,7 +812,7 @@ Window {
                 color: activePalette.highlight
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.bottom: buttonBar.top
+                anchors.bottom: donateBar.top
                 radius: 5
                 height: Math.max(loadingLabel.height, notesButton.height) + 10
                 opacity: 0.5

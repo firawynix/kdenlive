@@ -121,6 +121,12 @@ SPDX-FileCopyrightText = "Farid Abdelnour"
 SPDX-License-Identifier = "LGPL-3.0-or-later"
 
 [[annotations]]
+path = "data/pics/firawynix-splash-background.webp"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Firawynix"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
 path = "data/pics/kde-logo.png"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "KDE project"

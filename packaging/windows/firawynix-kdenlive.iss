@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "26.11.70-firaw.2"
+  #define MyAppVersion "26.11.70-firaw.3"
 #endif
 #ifndef StageDir
   #define StageDir "..\\..\\dist\\windows\\stage"
@@ -20,7 +20,7 @@ AppUpdatesURL=https://github.com/firawynix/kdenlive/releases
 VersionInfoCompany=Firawynix / KDE Community
 VersionInfoDescription=Instalador do Firawynix - Kdenlive
 VersionInfoProductName=Firawynix - Kdenlive
-VersionInfoVersion=26.11.70.2
+VersionInfoVersion=26.11.70.3
 DefaultDirName={autopf}\Firawynix Kdenlive
 DefaultGroupName=Firawynix - Kdenlive
 DisableProgramGroupPage=yes
