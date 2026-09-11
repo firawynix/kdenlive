@@ -60,6 +60,7 @@ public:
     static std::optional<AiSessionCheckpoint> load(const QString &id);
     static std::optional<AiSessionCheckpoint> loadMostAdvancedCompatible(const QString &timelineFingerprint, const QString &prompt, int timelineFrames,
                                                                          double fps, const QString &transcript);
+    static std::optional<AiSessionCheckpoint> loadUniqueCompatibleRequest(const QString &prompt, int timelineFrames, double fps);
     static void remove(const QString &id);
 
     static bool saveTranscript(const QString &timelineFingerprint, const QString &transcript, QString *error = nullptr);

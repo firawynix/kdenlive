@@ -47,3 +47,9 @@ prompt, FPS, duration, transcript, and chunk mapping are compatible. The source
 checkpoint remains intact. `AssistantDock::updateProvider()` clears only the
 in-memory preview when switching providers so an interrupted checkpoint is not
 deleted; explicit Discard retains its destructive meaning for the active plan.
+
+Before starting the expensive local audio export, the dock searches for a
+unique saved request with the same normalized prompt, timeline duration, and
+FPS. When exactly one timeline fingerprint matches, its embedded transcript is
+reused and provider handoff begins immediately. If different timelines match
+those coarse fields, transcription runs normally so separate media is not mixed.

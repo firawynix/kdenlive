@@ -299,6 +299,52 @@ std::optional<AiSessionCheckpoint> AiSessionStore::loadMostAdvancedCompatible(co
     return best;
 }
 
+std::optional<AiSessionCheckpoint> AiSessionStore::loadUniqueCompatibleRequest(const QString &prompt, int timelineFrames, double fps)
+{
+    pruneExpiredFiles();
+    if (prompt.trimmed().isEmpty() || timelineFrames < 1 || fps <= 0.0) {
+        return std::nullopt;
+    }
+
+    const QDir sessions(storageRoot() + QStringLiteral("/sessions"));
+    const QFileInfoList files = sessions.entryInfoList({QStringLiteral("*.json")}, QDir::Files | QDir::NoSymLinks, QDir::Time);
+    std::optional<AiSessionCheckpoint> best;
+    QString matchingFingerprint;
+    int bestCompletedFrame = -1;
+    QDateTime bestUpdated;
+    const qint64 now = QDateTime::currentDateTimeUtc().toSecsSinceEpoch();
+    for (const QFileInfo &fileInfo : files) {
+        QFile file(fileInfo.absoluteFilePath());
+        if (!file.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        const QByteArray data = file.readAll();
+        const QJsonObject root = QJsonDocument::fromJson(data).object();
+        const qint64 updatedAt = root.value(QStringLiteral("updated_at_utc")).toInteger();
+        const auto candidate = deserialize(data);
+        if (!candidate || updatedAt <= 0 || now - updatedAt > TranscriptLifetimeSeconds || candidate->prompt.trimmed() != prompt.trimmed() ||
+            candidate->timelineFrames != timelineFrames || !qFuzzyCompare(candidate->fps, fps)) {
+            continue;
+        }
+        if (!matchingFingerprint.isEmpty() && candidate->timelineFingerprint != matchingFingerprint) {
+            // Duration, FPS, and prompt alone cannot safely distinguish two different timelines.
+            return std::nullopt;
+        }
+        matchingFingerprint = candidate->timelineFingerprint;
+        const QVector<TranscriptChunk> chunks = splitTranscript(candidate->transcript, candidate->timelineFrames, candidate->chunkCharacters);
+        if (candidate->nextChunk > chunks.size()) {
+            continue;
+        }
+        const int completedFrame = candidate->nextChunk == 0 ? 0 : chunks.at(candidate->nextChunk - 1).ownedEndFrame;
+        if (!best || completedFrame > bestCompletedFrame || (completedFrame == bestCompletedFrame && fileInfo.lastModified() > bestUpdated)) {
+            best = candidate;
+            bestCompletedFrame = completedFrame;
+            bestUpdated = fileInfo.lastModified();
+        }
+    }
+    return best;
+}
+
 void AiSessionStore::remove(const QString &id)
 {
     const QString path = checkpointPath(id);

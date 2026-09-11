@@ -113,8 +113,13 @@ TEST_CASE("AI analysis can continue with another provider without losing complet
     REQUIRE(restored->provider == AiProvider::OpenRouter);
     REQUIRE(restored->nextChunk == 1);
     REQUIRE(restored->planFragments == source.planFragments);
+    const auto requestResume = AiSessionStore::loadUniqueCompatibleRequest(source.prompt, source.timelineFrames, source.fps);
+    REQUIRE(requestResume.has_value());
+    REQUIRE(requestResume->timelineFingerprint == source.timelineFingerprint);
+    REQUIRE(requestResume->transcript == source.transcript);
     REQUIRE_FALSE(AiSessionStore::loadMostAdvancedCompatible(source.timelineFingerprint, QStringLiteral("Different request"), source.timelineFrames,
                                                               source.fps, source.transcript)
                       .has_value());
+    REQUIRE_FALSE(AiSessionStore::loadUniqueCompatibleRequest(QStringLiteral("Different request"), source.timelineFrames, source.fps).has_value());
     AiSessionStore::remove(source.id);
 }

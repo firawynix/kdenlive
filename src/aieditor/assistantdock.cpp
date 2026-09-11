@@ -436,6 +436,14 @@ void AssistantDock::generatePlan()
     resetPlanPreview();
     m_pendingPrompt = m_prompt->toPlainText();
     if (m_analyzeAudio->isChecked()) {
+        const int timelineFrames = timelineWidget->model()->duration();
+        const double fps = pCore->getCurrentFps();
+        const auto saved = AiSessionStore::loadUniqueCompatibleRequest(m_pendingPrompt, timelineFrames, fps);
+        if (saved) {
+            setStatus(i18n("Saved transcript and analysis found. Skipping local audio preparation and continuing at segment %1.", saved->nextChunk + 1));
+            requestProviderPlan(saved->transcript, saved->timelineFingerprint);
+            return;
+        }
         m_transcriber->start(timelineWidget->model(), pCore->getCurrentFps());
     } else {
         requestProviderPlan();
