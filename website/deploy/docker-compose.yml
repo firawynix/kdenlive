@@ -1,0 +1,19 @@
+services:
+  site:
+    image: nginx:alpine
+    container_name: firawynix-kdenlive-site
+    restart: unless-stopped
+    ports:
+      # A porta fica acessível apenas na rede privada entre os servidores.
+      # O Cloudflare Tunnel existente no 10.81.66.7 encaminha o domínio até aqui.
+      - "10.81.66.10:${PORTA_SITE:-26004}:80"
+    volumes:
+      - ./public:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    security_opt:
+      - no-new-privileges:true
+
