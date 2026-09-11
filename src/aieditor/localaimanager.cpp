@@ -95,6 +95,18 @@ QString LocalAiManager::recommendedModelForMemory(quint64 memoryBytes)
     return QStringLiteral("qwen3:4b");
 }
 
+QString LocalAiManager::recommendedModelForHardware(const LocalAiHardware &hardware)
+{
+    const bool dedicatedDesktopGpu = hardware.displayAdapter.contains(QLatin1String("Radeon RX"), Qt::CaseInsensitive) ||
+                                     hardware.displayAdapter.contains(QLatin1String("GeForce"), Qt::CaseInsensitive) ||
+                                     hardware.displayAdapter.contains(QLatin1String("NVIDIA RTX"), Qt::CaseInsensitive) ||
+                                     hardware.displayAdapter.contains(QLatin1String("Intel Arc"), Qt::CaseInsensitive);
+    if (dedicatedDesktopGpu) {
+        return hardware.memoryBytes >= 12 * GiB ? QStringLiteral("qwen3:8b") : QStringLiteral("qwen3:4b");
+    }
+    return recommendedModelForMemory(hardware.memoryBytes);
+}
+
 QString LocalAiManager::approximateDownloadSize(const QString &model)
 {
     if (model.contains(QLatin1String("30b"), Qt::CaseInsensitive)) {
@@ -142,7 +154,7 @@ bool LocalAiManager::isModelReady(const QString &model) const
 
 QString LocalAiManager::recommendedModel() const
 {
-    return recommendedModelForMemory(m_hardware.memoryBytes);
+    return recommendedModelForHardware(m_hardware);
 }
 
 QString LocalAiManager::hardwareSummary() const

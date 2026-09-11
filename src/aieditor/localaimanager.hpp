@@ -31,6 +31,7 @@ public:
 
     static LocalAiHardware detectHardware();
     static QString recommendedModelForMemory(quint64 memoryBytes);
+    static QString recommendedModelForHardware(const LocalAiHardware &hardware);
     static QString approximateDownloadSize(const QString &model);
     static QString ollamaExecutable();
 

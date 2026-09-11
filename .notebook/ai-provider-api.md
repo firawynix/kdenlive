@@ -37,3 +37,13 @@ the safer 4,000-character budget; legacy checkpoints already in progress retain
 their former 16,000-character mapping so completed segment indexes remain valid.
 Automatic subdivision is bounded to four reductions to prevent retry loops. If
 the minimum still fails, the UI asks for a model with a larger output allowance.
+
+## Provider handoff
+
+`AiSessionStore::loadMostAdvancedCompatible()` chooses resume progress by the
+latest completed timeline frame, not merely by segment number. A checkpoint may
+be copied to another provider/model only when timeline fingerprint, normalized
+prompt, FPS, duration, transcript, and chunk mapping are compatible. The source
+checkpoint remains intact. `AssistantDock::updateProvider()` clears only the
+in-memory preview when switching providers so an interrupted checkpoint is not
+deleted; explicit Discard retains its destructive meaning for the active plan.

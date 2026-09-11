@@ -324,7 +324,10 @@ void AssistantDock::updateProvider()
               : i18n("Privacy: media files are never uploaded. Whisper runs locally; only the timestamped transcript is sent. Local resume "
                      "checkpoints expire after seven days and never contain API keys."));
     updateCredentialStatus();
-    discardPlan();
+    resetPlanPreview();
+    m_chunkedRequest = false;
+    m_checkpoint = {};
+    m_transcriptChunks.clear();
     if (local) {
         const QString recommendation = m_localAi->recommendedModel();
         m_localHardware->setText(i18n("%1\nRecommended model: %2 (approximately %3 download). You may type a smaller model above for more speed.",
@@ -456,18 +459,27 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     }
 
     const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), m_model->text(), m_pendingPrompt, timelineFrames, fps);
-    const auto saved = AiSessionStore::load(id);
+    const auto saved = AiSessionStore::loadMostAdvancedCompatible(timelineFingerprint, m_pendingPrompt, timelineFrames, fps, transcript);
     const qsizetype chunkCharacters = saved ? saved->chunkCharacters : AiSessionStore::DefaultChunkCharacters;
     m_transcriptChunks = AiSessionStore::splitTranscript(transcript, timelineFrames, chunkCharacters);
     if (m_transcriptChunks.isEmpty()) {
         setStatus(i18n("The saved transcript contains no usable dialogue."), true);
         return;
     }
-    if (saved && saved->timelineFingerprint == timelineFingerprint && saved->provider == selectedProvider() && saved->model == m_model->text().trimmed() &&
-        saved->prompt == m_pendingPrompt.trimmed() && saved->timelineFrames == timelineFrames && qFuzzyCompare(saved->fps, fps) &&
-        saved->nextChunk <= m_transcriptChunks.size()) {
+    if (saved && saved->nextChunk <= m_transcriptChunks.size()) {
         m_checkpoint = *saved;
-        setStatus(i18n("Saved analysis restored at segment %1 of %2.", m_checkpoint.nextChunk + 1, m_transcriptChunks.size()));
+        const bool transferred = m_checkpoint.id != id || m_checkpoint.provider != selectedProvider() || m_checkpoint.model != m_model->text().trimmed();
+        m_checkpoint.id = id;
+        m_checkpoint.provider = selectedProvider();
+        m_checkpoint.model = m_model->text().trimmed();
+        QString error;
+        if (!AiSessionStore::save(m_checkpoint, &error)) {
+            setStatus(error, true);
+            return;
+        }
+        setStatus(transferred ? i18n("Saved analysis transferred to %1. Continuing at segment %2 of %3.",
+                                     AiProviderClient::displayName(selectedProvider()), m_checkpoint.nextChunk + 1, m_transcriptChunks.size())
+                              : i18n("Saved analysis restored at segment %1 of %2.", m_checkpoint.nextChunk + 1, m_transcriptChunks.size()));
     } else {
         m_checkpoint = {};
         m_checkpoint.id = id;

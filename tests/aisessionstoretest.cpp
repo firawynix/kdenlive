@@ -90,3 +90,31 @@ TEST_CASE("AI timeline fingerprint ignores the temporary folder", "[AIEditor][Ch
     REQUIRE(AiSessionStore::timelineFingerprint(firstScene, 25.0, QStringLiteral("base"), QStringLiteral("Portuguese"), QStringLiteral("C:/temp/one")) ==
             AiSessionStore::timelineFingerprint(secondScene, 25.0, QStringLiteral("base"), QStringLiteral("Portuguese"), QStringLiteral("C:/temp/two")));
 }
+
+TEST_CASE("AI analysis can continue with another provider without losing completed segments", "[AIEditor][Checkpoint]")
+{
+    AiSessionCheckpoint source;
+    source.id = QString(64, QLatin1Char('c'));
+    source.timelineFingerprint = QString(64, QLatin1Char('d'));
+    source.provider = AiProvider::OpenRouter;
+    source.model = QStringLiteral("remote-model");
+    source.prompt = QStringLiteral("Clean this meeting");
+    source.timelineFrames = 400;
+    source.fps = 25.0;
+    source.transcript = QStringLiteral("[0-100] first\n[100-200] second\n[200-300] third\n[300-400] fourth");
+    source.chunkCharacters = 1000;
+    source.nextChunk = 1;
+    source.planFragments = {QStringLiteral(R"({"version":1,"operations":[]})")};
+    REQUIRE(AiSessionStore::save(source));
+
+    const auto restored = AiSessionStore::loadMostAdvancedCompatible(source.timelineFingerprint, source.prompt, source.timelineFrames, source.fps,
+                                                                      source.transcript);
+    REQUIRE(restored.has_value());
+    REQUIRE(restored->provider == AiProvider::OpenRouter);
+    REQUIRE(restored->nextChunk == 1);
+    REQUIRE(restored->planFragments == source.planFragments);
+    REQUIRE_FALSE(AiSessionStore::loadMostAdvancedCompatible(source.timelineFingerprint, QStringLiteral("Different request"), source.timelineFrames,
+                                                              source.fps, source.transcript)
+                      .has_value());
+    AiSessionStore::remove(source.id);
+}

@@ -63,4 +63,6 @@ TEST_CASE("Local AI model recommendation scales with system memory", "[AIEditor]
     REQUIRE(LocalAiManager::recommendedModelForMemory(16 * GiB) == QStringLiteral("qwen3:8b"));
     REQUIRE(LocalAiManager::recommendedModelForMemory(32 * GiB) == QStringLiteral("qwen3:14b"));
     REQUIRE(LocalAiManager::recommendedModelForMemory(64 * GiB) == QStringLiteral("qwen3:30b"));
+    REQUIRE(LocalAiManager::recommendedModelForHardware({32, 128 * GiB, QStringLiteral("AMD Radeon RX 9060 XT")}) == QStringLiteral("qwen3:8b"));
+    REQUIRE(LocalAiManager::recommendedModelForHardware({8, 8 * GiB, QStringLiteral("NVIDIA GeForce GTX")}) == QStringLiteral("qwen3:4b"));
 }

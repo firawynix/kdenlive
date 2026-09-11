@@ -58,6 +58,8 @@ public:
     static std::optional<AiSessionCheckpoint> deserialize(const QByteArray &data);
     static bool save(const AiSessionCheckpoint &checkpoint, QString *error = nullptr);
     static std::optional<AiSessionCheckpoint> load(const QString &id);
+    static std::optional<AiSessionCheckpoint> loadMostAdvancedCompatible(const QString &timelineFingerprint, const QString &prompt, int timelineFrames,
+                                                                         double fps, const QString &transcript);
     static void remove(const QString &id);
 
     static bool saveTranscript(const QString &timelineFingerprint, const QString &transcript, QString *error = nullptr);
