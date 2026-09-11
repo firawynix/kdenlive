@@ -30,6 +30,14 @@ QByteArray anthropicResponse(const QByteArray &plan)
                                                                                         {QStringLiteral("text"), QString::fromUtf8(plan)}}}}})
         .toJson(QJsonDocument::Compact);
 }
+
+QByteArray ollamaResponse(const QByteArray &plan)
+{
+    return QJsonDocument(QJsonObject{{QStringLiteral("message"),
+                                      QJsonObject{{QStringLiteral("role"), QStringLiteral("assistant")}, {QStringLiteral("content"), QString::fromUtf8(plan)}}},
+                                     {QStringLiteral("done"), true}})
+        .toJson(QJsonDocument::Compact);
+}
 } // namespace
 
 TEST_CASE("AI provider request construction", "[AIEditor][Provider]")
@@ -152,4 +160,20 @@ TEST_CASE("AI provider rejects missing credentials", "[AIEditor][Provider]")
     const auto result = AiProviderClient::buildRequest(AiProvider::OpenAI, QStringLiteral("gpt-4o-mini"), {}, QStringLiteral("edit"), 100, 25.0);
     REQUIRE_FALSE(result.isValid());
     REQUIRE(result.error.contains(QStringLiteral("OPENAI_API_KEY")));
+}
+
+TEST_CASE("Local Ollama provider is loopback-only and needs no credential", "[AIEditor][Provider][Local]")
+{
+    const auto request = AiProviderClient::buildRequest(AiProvider::Ollama, QStringLiteral("qwen3:8b"), {}, QStringLiteral("edit"), 100, 25.0);
+    INFO(request.error.toStdString());
+    REQUIRE(request.isValid());
+    REQUIRE(request.url == QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat")));
+    const QJsonObject body = QJsonDocument::fromJson(request.body).object();
+    REQUIRE(body.value(QStringLiteral("stream")).toBool() == false);
+    REQUIRE(body.value(QStringLiteral("format")).toObject().value(QStringLiteral("type")).toString() == QLatin1String("object"));
+    REQUIRE(request.headers.size() == 1);
+
+    const auto result = AiProviderClient::completeResponse(AiProvider::Ollama, 200, QNetworkReply::NoError, false, ollamaResponse(ValidPlan));
+    INFO(result.error.toStdString());
+    REQUIRE(result.isValid());
 }

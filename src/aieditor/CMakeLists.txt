@@ -9,6 +9,7 @@ set(kdenlive_SRCS
     aieditor/editplan.cpp
     aieditor/editplanexecutor.cpp
     aieditor/localtimelinetranscriber.cpp
+    aieditor/localaimanager.cpp
     aieditor/muterangeexecutor.cpp
     aieditor/resourcebudget.cpp
     aieditor/retimerangeexecutor.cpp

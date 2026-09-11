@@ -17,6 +17,9 @@
    settings and never stores a credential.
 8. `EditPlanExecutor` validates and executes operations in descending start-frame
    order, composing all undo/redo functions into one action.
+9. `LocalAiManager` inventories the host, recommends a bounded Ollama model,
+   installs Ollama only after an explicit button press, and streams model-pull
+   progress into the dock.
 
 ## Operations
 
@@ -52,3 +55,11 @@
 - Transcript checkpoints are stored only in the application-local data folder,
   expire after seven days, and are reused only when the serialized timeline,
   FPS, Whisper model, and language produce the same fingerprint.
+- `LocalTimelineTranscriber` consumes Melt and Whisper progress output while
+  retaining a bounded diagnostic log. The dock shows phase, percentage, and an
+  elapsed-rate ETA; indeterminate work remains animated.
+- Ollama traffic is fixed to `127.0.0.1:11434`, requires no credential, uses the
+  same edit-plan JSON schema, and receives only the prompt/transcript context.
+- Memory-based recommendations favor Qwen3 30B at 48 GiB or more, 14B at 24
+  GiB, 8B at 12 GiB, and 4B below that. They are recommendations rather than a
+  promise of GPU fit or speed.

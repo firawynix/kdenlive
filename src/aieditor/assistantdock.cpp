@@ -8,6 +8,7 @@
 #include "core.h"
 #include "editplanexecutor.hpp"
 #include "kdenlivesettings.h"
+#include "localaimanager.hpp"
 #include "localtimelinetranscriber.hpp"
 #include "mainwindow.h"
 #include "resourcebudget.hpp"
@@ -26,6 +27,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QSet>
 #include <QSlider>
@@ -41,12 +43,13 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     : QWidget(mainWindow)
     , m_mainWindow(mainWindow)
     , m_client(new AiProviderClient(this))
+    , m_localAi(new LocalAiManager(this))
 {
     auto *layout = new QVBoxLayout(this);
     auto *providerForm = new QFormLayout;
 
     m_provider = new QComboBox(this);
-    for (AiProvider provider : {AiProvider::OpenRouter, AiProvider::OpenAI, AiProvider::Anthropic}) {
+    for (AiProvider provider : {AiProvider::OpenRouter, AiProvider::OpenAI, AiProvider::Anthropic, AiProvider::Ollama}) {
         m_provider->addItem(AiProviderClient::displayName(provider), int(provider));
     }
     providerForm->addRow(i18n("Provider:"), m_provider);
@@ -59,28 +62,43 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     m_keyInput->setEchoMode(QLineEdit::Password);
     m_keyInput->setClearButtonEnabled(true);
     m_keyInput->setPlaceholderText(i18n("Paste a provider API key"));
-    providerForm->addRow(i18n("API key:"), m_keyInput);
+    m_keyLabel = new QLabel(i18n("API key:"), this);
+    providerForm->addRow(m_keyLabel, m_keyInput);
     layout->addLayout(providerForm);
 
     m_keyStatus = new QLabel(this);
     m_keyStatus->setWordWrap(true);
     layout->addWidget(m_keyStatus);
 
-    auto *credentialButtons = new QHBoxLayout;
+    m_credentialButtons = new QWidget(this);
+    auto *credentialButtons = new QHBoxLayout(m_credentialButtons);
+    credentialButtons->setContentsMargins(0, 0, 0, 0);
     m_saveKey = new QPushButton(i18n("Save securely"), this);
     m_testKey = new QPushButton(i18n("Test connection"), this);
     m_removeKey = new QPushButton(i18n("Remove saved key"), this);
     credentialButtons->addWidget(m_saveKey);
     credentialButtons->addWidget(m_testKey);
     credentialButtons->addWidget(m_removeKey);
-    layout->addLayout(credentialButtons);
+    layout->addWidget(m_credentialButtons);
 
-    auto *privacy = new QLabel(
+    m_privacy = new QLabel(
         i18n("Privacy: media files are never uploaded. Whisper runs locally; only the timestamped transcript is sent. Local resume checkpoints expire after "
              "seven days and never contain API keys."),
         this);
-    privacy->setWordWrap(true);
-    layout->addWidget(privacy);
+    m_privacy->setWordWrap(true);
+    layout->addWidget(m_privacy);
+
+    m_localAiGroup = new QGroupBox(i18n("Local AI setup"), this);
+    auto *localAiLayout = new QVBoxLayout(m_localAiGroup);
+    m_localHardware = new QLabel(m_localAiGroup);
+    m_localHardware->setWordWrap(true);
+    m_localStatus = new QLabel(m_localAiGroup);
+    m_localStatus->setWordWrap(true);
+    m_localSetup = new QPushButton(i18n("Prepare / download local model"), m_localAiGroup);
+    localAiLayout->addWidget(m_localHardware);
+    localAiLayout->addWidget(m_localStatus);
+    localAiLayout->addWidget(m_localSetup);
+    layout->addWidget(m_localAiGroup);
 
     auto *performanceGroup = new QGroupBox(i18n("Performance"), this);
     auto *performanceLayout = new QFormLayout(performanceGroup);
@@ -158,6 +176,16 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     m_status->setWordWrap(true);
     layout->addWidget(m_status);
 
+    m_progress = new QProgressBar(this);
+    m_progress->setRange(0, 100);
+    m_progress->setTextVisible(true);
+    m_progress->hide();
+    layout->addWidget(m_progress);
+    m_progressDetails = new QLabel(this);
+    m_progressDetails->setWordWrap(true);
+    m_progressDetails->hide();
+    layout->addWidget(m_progressDetails);
+
     auto *applyButtons = new QHBoxLayout;
     m_apply = new QPushButton(i18n("Apply"), this);
     m_discard = new QPushButton(i18n("Discard"), this);
@@ -195,27 +223,56 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
         m_analyzeAudio->setChecked(index >= 1 && index <= 3);
     });
     connect(m_generate, &QPushButton::clicked, this, &AssistantDock::generatePlan);
+    connect(m_model, &QLineEdit::editingFinished, this, [this]() {
+        if (selectedProvider() == AiProvider::Ollama && !m_localAi->isBusy()) {
+            m_localAi->refresh(m_model->text());
+        }
+    });
+    connect(m_localSetup, &QPushButton::clicked, this, [this]() { m_localAi->installAndPrepare(m_model->text()); });
     connect(m_cancel, &QPushButton::clicked, this, [this]() {
         m_client->cancel();
         m_transcriber->cancel();
+        m_localAi->cancel();
     });
     connect(m_apply, &QPushButton::clicked, this, &AssistantDock::applyPlan);
     connect(m_discard, &QPushButton::clicked, this, &AssistantDock::discardPlan);
     connect(m_client, &AiProviderClient::busyChanged, this, &AssistantDock::setBusy);
     connect(m_client, &AiProviderClient::planReady, this, &AssistantDock::handleProviderPlan);
     connect(m_client, &AiProviderClient::errorOccurred, this, [this](const QString &message) {
+        hideProgress();
         setStatus(m_chunkedRequest ? i18n("%1 Progress is saved locally. Choose Generate plan to resume.", message) : message, true);
     });
     connect(m_client, &AiProviderClient::requestCancelled, this, [this]() {
+        hideProgress();
         setStatus(m_chunkedRequest ? i18n("Request cancelled. Completed segments are saved locally; choose Generate plan to resume.")
                                    : i18n("Request cancelled."));
+    });
+    connect(m_localAi, &LocalAiManager::busyChanged, this, &AssistantDock::setBusy);
+    connect(m_localAi, &LocalAiManager::progressChanged, this, &AssistantDock::showProgress);
+    connect(m_localAi, &LocalAiManager::readyChanged, this, [this](bool ready) {
+        Q_UNUSED(ready)
+        m_localSetup->setText(i18n("Prepare / download local model"));
+    });
+    connect(m_localAi, &LocalAiManager::statusChanged, this, [this](const QString &message, bool error) {
+        m_localStatus->setText(error ? i18n("Error: %1", message) : message);
+        setStatus(message, error);
+        if (!m_localAi->isBusy()) {
+            hideProgress();
+        }
     });
 
     m_transcriber = new LocalTimelineTranscriber(this);
     connect(m_transcriber, &LocalTimelineTranscriber::busyChanged, this, &AssistantDock::setBusy);
     connect(m_transcriber, &LocalTimelineTranscriber::statusChanged, this, [this](const QString &message) { setStatus(message); });
-    connect(m_transcriber, &LocalTimelineTranscriber::errorOccurred, this, [this](const QString &message) { setStatus(message, true); });
-    connect(m_transcriber, &LocalTimelineTranscriber::cancelled, this, [this]() { setStatus(i18n("Local transcription cancelled.")); });
+    connect(m_transcriber, &LocalTimelineTranscriber::progressChanged, this, &AssistantDock::showProgress);
+    connect(m_transcriber, &LocalTimelineTranscriber::errorOccurred, this, [this](const QString &message) {
+        hideProgress();
+        setStatus(message, true);
+    });
+    connect(m_transcriber, &LocalTimelineTranscriber::cancelled, this, [this]() {
+        hideProgress();
+        setStatus(i18n("Local transcription cancelled."));
+    });
     connect(m_transcriber, &LocalTimelineTranscriber::transcriptReady, this, [this](const QString &transcript, const QString &timelineFingerprint) {
         setStatus(i18n("Local transcript ready. Requesting the edit plan…"));
         requestProviderPlan(transcript, timelineFingerprint);
@@ -232,6 +289,9 @@ AiProvider AssistantDock::selectedProvider() const
 
 QByteArray AssistantDock::selectedApiKey() const
 {
+    if (selectedProvider() == AiProvider::Ollama) {
+        return {};
+    }
     const QByteArray stored = SecureCredentialStore::read(selectedProvider());
     if (!stored.isEmpty()) {
         return stored;
@@ -242,14 +302,34 @@ QByteArray AssistantDock::selectedApiKey() const
 
 void AssistantDock::updateProvider()
 {
-    m_model->setText(AiProviderClient::defaultModel(selectedProvider()));
+    const bool local = selectedProvider() == AiProvider::Ollama;
+    m_model->setText(local ? m_localAi->recommendedModel() : AiProviderClient::defaultModel(selectedProvider()));
     m_keyInput->clear();
+    m_keyLabel->setVisible(!local);
+    m_keyInput->setVisible(!local);
+    m_keyStatus->setVisible(!local);
+    m_credentialButtons->setVisible(!local);
+    m_localAiGroup->setVisible(local);
+    m_privacy->setText(
+        local ? i18n("Privacy: the transcript and edit request stay on this computer. Ollama listens only on the local loopback address; no API key "
+                     "is required.")
+              : i18n("Privacy: media files are never uploaded. Whisper runs locally; only the timestamped transcript is sent. Local resume "
+                     "checkpoints expire after seven days and never contain API keys."));
     updateCredentialStatus();
     discardPlan();
+    if (local) {
+        const QString recommendation = m_localAi->recommendedModel();
+        m_localHardware->setText(i18n("%1\nRecommended model: %2 (approximately %3 download). You may type a smaller model above for more speed.",
+                                      m_localAi->hardwareSummary(), recommendation, LocalAiManager::approximateDownloadSize(recommendation)));
+        m_localAi->refresh(m_model->text());
+    }
 }
 
 void AssistantDock::updateCredentialStatus()
 {
+    if (selectedProvider() == AiProvider::Ollama) {
+        return;
+    }
     const QString variable = AiProviderClient::environmentVariable(selectedProvider());
     if (!SecureCredentialStore::read(selectedProvider()).isEmpty()) {
         m_keyStatus->setText(i18n("Connected: key saved securely in %1.", SecureCredentialStore::backendName()));
@@ -265,6 +345,9 @@ void AssistantDock::updateCredentialStatus()
 
 void AssistantDock::saveCredential()
 {
+    if (selectedProvider() == AiProvider::Ollama) {
+        return;
+    }
     QString error;
     if (!SecureCredentialStore::write(selectedProvider(), m_keyInput->text().toUtf8(), &error)) {
         setStatus(error, true);
@@ -277,6 +360,9 @@ void AssistantDock::saveCredential()
 
 void AssistantDock::removeCredential()
 {
+    if (selectedProvider() == AiProvider::Ollama) {
+        return;
+    }
     QString error;
     if (!SecureCredentialStore::remove(selectedProvider(), &error)) {
         setStatus(error, true);
@@ -289,6 +375,10 @@ void AssistantDock::removeCredential()
 
 void AssistantDock::testCredential()
 {
+    if (selectedProvider() == AiProvider::Ollama) {
+        m_localAi->refresh(m_model->text());
+        return;
+    }
     const QByteArray candidate = m_keyInput->text().trimmed().isEmpty() ? selectedApiKey() : m_keyInput->text().trimmed().toUtf8();
     if (candidate.isEmpty()) {
         setStatus(i18n("Paste or save an API key before testing the connection."), true);
@@ -315,8 +405,12 @@ void AssistantDock::generatePlan()
         setStatus(i18n("Choose a model before sending the request."), true);
         return;
     }
-    if (selectedApiKey().trimmed().isEmpty()) {
+    if (selectedProvider() != AiProvider::Ollama && selectedApiKey().trimmed().isEmpty()) {
         setStatus(i18n("The API key is missing. Set %1 and restart Kdenlive.", AiProviderClient::environmentVariable(selectedProvider())), true);
+        return;
+    }
+    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(m_model->text())) {
+        setStatus(i18n("Local AI is not ready. Choose Prepare / download local model first."), true);
         return;
     }
     if (m_prompt->toPlainText().trimmed().isEmpty()) {
@@ -348,6 +442,7 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     const double fps = pCore->getCurrentFps();
     if (transcript.isEmpty()) {
         m_chunkedRequest = false;
+        showProgress(-1, -1, i18n("Waiting for the AI provider"));
         m_client->requestPlan(selectedProvider(), m_model->text(), selectedApiKey(), m_pendingPrompt, timelineFrames, fps);
         return;
     }
@@ -381,6 +476,8 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
         }
     }
     m_chunkedRequest = true;
+    m_providerStartChunk = m_checkpoint.nextChunk;
+    m_providerTimer.restart();
     requestNextTranscriptChunk();
 }
 
@@ -401,6 +498,14 @@ void AssistantDock::requestNextTranscriptChunk()
             .arg(chunk.ownedStartFrame)
             .arg(chunk.ownedEndFrame);
     setStatus(i18n("Requesting AI segment %1 of %2. Each completed segment is saved locally.", chunkNumber, m_transcriptChunks.size()));
+    qint64 remainingSeconds = -1;
+    const int completedThisRun = m_checkpoint.nextChunk - m_providerStartChunk;
+    if (completedThisRun > 0) {
+        const double secondsPerChunk = double(m_providerTimer.elapsed()) / 1000.0 / double(completedThisRun);
+        remainingSeconds = qRound64(secondsPerChunk * double(m_transcriptChunks.size() - m_checkpoint.nextChunk));
+    }
+    showProgress(qRound(double(m_checkpoint.nextChunk) * 100.0 / double(m_transcriptChunks.size())), remainingSeconds,
+                 i18n("Analyzing transcript with AI · segment %1 of %2", chunkNumber, m_transcriptChunks.size()));
     m_client->requestPlan(m_checkpoint.provider, m_checkpoint.model, selectedApiKey(), chunkPrompt, m_checkpoint.timelineFrames, m_checkpoint.fps, chunk.text,
                           true);
 }
@@ -451,6 +556,7 @@ void AssistantDock::finishChunkedPlan()
         return;
     }
     m_chunkedRequest = false;
+    hideProgress();
     if (parsed.plan.operations.isEmpty()) {
         AiSessionStore::remove(m_checkpoint.id);
         m_checkpoint = {};
@@ -513,6 +619,7 @@ void AssistantDock::showPlan(const QByteArray &planJson)
         return;
     }
     m_apply->setEnabled(true);
+    hideProgress();
     setStatus(i18n("Plan validated. Review it, then choose Apply."));
 }
 
@@ -558,23 +665,55 @@ void AssistantDock::setStatus(const QString &message, bool error)
 void AssistantDock::setBusy(bool busy)
 {
     Q_UNUSED(busy)
-    const bool anyBusy = m_client->isBusy() || (m_transcriber && m_transcriber->isBusy());
+    const bool anyBusy = m_client->isBusy() || (m_transcriber && m_transcriber->isBusy()) || (m_localAi && m_localAi->isBusy());
     m_generate->setEnabled(!anyBusy);
     m_provider->setEnabled(!anyBusy);
     m_model->setEnabled(!anyBusy);
-    m_keyInput->setEnabled(!anyBusy);
-    m_saveKey->setEnabled(!anyBusy);
-    m_testKey->setEnabled(!anyBusy);
-    m_removeKey->setEnabled(!anyBusy && !SecureCredentialStore::read(selectedProvider()).isEmpty());
+    const bool local = selectedProvider() == AiProvider::Ollama;
+    m_keyInput->setEnabled(!anyBusy && !local);
+    m_saveKey->setEnabled(!anyBusy && !local);
+    m_testKey->setEnabled(!anyBusy && !local);
+    m_removeKey->setEnabled(!anyBusy && !local && !SecureCredentialStore::read(selectedProvider()).isEmpty());
+    m_localSetup->setEnabled(!anyBusy && local);
     m_performance->setEnabled(!anyBusy);
     m_cpuThreads->setEnabled(!anyBusy);
     m_processingDevice->setEnabled(!anyBusy);
     m_preset->setEnabled(!anyBusy);
     m_analyzeAudio->setEnabled(!anyBusy);
     m_cancel->setEnabled(anyBusy);
-    if (anyBusy && m_client->isBusy()) {
+    if (anyBusy && m_client->isBusy() && !m_chunkedRequest) {
         setStatus(i18n("Waiting for the AI provider…"));
+    } else if (!anyBusy && !m_hasPlan) {
+        hideProgress();
     }
+}
+
+void AssistantDock::showProgress(int percent, qint64 remainingSeconds, const QString &phase)
+{
+    m_progress->show();
+    m_progressDetails->show();
+    if (percent < 0) {
+        m_progress->setRange(0, 0);
+        m_progressDetails->setText(phase);
+        return;
+    }
+    m_progress->setRange(0, 100);
+    m_progress->setValue(qBound(0, percent, 100));
+    QString details = phase;
+    if (remainingSeconds >= 0 && percent < 100) {
+        const qint64 hours = remainingSeconds / 3600;
+        const QTime remaining = QTime::fromMSecsSinceStartOfDay(int((remainingSeconds % 86400) * 1000));
+        const QString duration =
+            hours > 0 ? QStringLiteral("%1:%2").arg(hours).arg(remaining.toString(QStringLiteral("mm:ss"))) : remaining.toString(QStringLiteral("mm:ss"));
+        details += i18n(" · approximately %1 remaining", duration);
+    }
+    m_progressDetails->setText(details);
+}
+
+void AssistantDock::hideProgress()
+{
+    m_progress->hide();
+    m_progressDetails->hide();
 }
 
 QString AssistantDock::formatFrames(int frames, double fps) const

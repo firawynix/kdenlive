@@ -9,9 +9,10 @@ presses **Apply**.
 
 | Provider | Environment variable | Default model (editable in the dock) |
 | --- | --- | --- |
-| OpenRouter | `OPENROUTER_API_KEY` | `openai/gpt-5-mini` |
+| OpenRouter | `OPENROUTER_API_KEY` | `nex-agi/nex-n2.5-mini:free` |
 | OpenAI | `OPENAI_API_KEY` | `gpt-5-mini` |
 | Anthropic Claude | `ANTHROPIC_API_KEY` | `claude-sonnet-5` |
+| Local AI (Ollama) | None | Hardware recommendation |
 
 Model availability changes over time. Enter another model identifier in the
 dock if the provider no longer offers the default.
@@ -33,6 +34,29 @@ the repository, and **Remove saved key** deletes only that secure-store entry.
 Environment variables remain a compatible fallback. **Test connection** uses a
 read-only authenticated provider endpoint and does not request a model
 completion.
+
+Direct OpenAI and Anthropic access requires provider API billing; a ChatGPT
+Plus or Claude consumer subscription does not supply an API key or API credits.
+
+## Local AI
+
+Choose **Local AI (Ollama)** to keep both the timestamped transcript and edit
+instruction on this computer. The dock inventories CPU threads, system memory,
+and the active display adapter, then recommends a Qwen3 model. On this machine
+the recommendation is `qwen3:30b` (approximately 19 GB). A smaller model can be
+entered for faster responses.
+
+Nothing is downloaded merely by selecting the provider. **Prepare / download
+local model** explicitly installs Ollama through Windows Package Manager when
+needed, starts its loopback service, and downloads or resumes the chosen model.
+All local provider requests are fixed to `127.0.0.1:11434`; there is no API key.
+The resulting plan still goes through the same preview, validation, and Undo
+workflow as cloud providers.
+
+Local AI currently reasons over the instruction and timestamped transcript. It
+does not inspect every video frame. Visual understanding can be added later by
+sampling local frames into a vision model without giving a model direct control
+of the timeline.
 
 ## Performance budget
 
@@ -83,6 +107,8 @@ can enable or disable it with the checkbox.
 4. Choose the provider/model and press **Generate plan**. Kdenlive exports the
    current timeline audio to a temporary local WAV and transcribes it locally
    with Whisper. For a long video this can take several minutes on CPU.
+   The dock shows a phase-aware progress bar and an approximate remaining time
+   when Melt or Whisper exposes measurable progress.
 5. Review every proposed mute or speed operation. The timeline has not changed
    yet.
 6. Press **Apply**, then use Undo once to restore the complete previous
@@ -115,6 +141,7 @@ Portuguese language, CPU processing, and FP16 disabled.
   timeline frame count are sent.
 - With local audio analysis, media stays on the computer. Only the timestamped
   transcript text is additionally sent to the selected provider.
+- With Local AI (Ollama), the transcript is not sent off-device either.
 - Long transcripts are sent in bounded segments. After local transcription and
   after each provider segment, the assistant saves a local checkpoint that
   contains no API key. If a request reaches a token limit, times out, is

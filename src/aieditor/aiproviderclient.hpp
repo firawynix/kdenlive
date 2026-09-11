@@ -20,7 +20,7 @@ class QNetworkAccessManager;
 namespace Kdenlive {
 namespace AiEditor {
 
-enum class AiProvider { OpenRouter, OpenAI, Anthropic };
+enum class AiProvider { OpenRouter, OpenAI, Anthropic, Ollama };
 
 struct BuiltAiRequest
 {

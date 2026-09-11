@@ -7,6 +7,7 @@
 
 #include "resourcebudget.hpp"
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QProcess>
 #include <memory>
@@ -32,6 +33,8 @@ public:
 
     static QString parseSrt(const QByteArray &srt, double fps);
     static QString selectAvailableModel(const QString &configuredModel, const QStringList &installedModels);
+    static int parseProgressPercent(const QByteArray &output, bool whisperPhase);
+    static qint64 estimateRemainingSeconds(qint64 elapsedMilliseconds, int percent);
 
 Q_SIGNALS:
     void statusChanged(const QString &message);
@@ -39,6 +42,7 @@ Q_SIGNALS:
     void errorOccurred(const QString &message);
     void cancelled();
     void busyChanged(bool busy);
+    void progressChanged(int percent, qint64 remainingSeconds, const QString &phase);
 
 private:
     enum class Phase { Idle, ExportAudio, Transcribe };
@@ -47,6 +51,9 @@ private:
     void configureProcessEnvironment();
     void applyNativeBudget();
     void releaseNativeBudget();
+    void consumeProcessOutput();
+    void beginProgressPhase(const QString &phase);
+    void emitParsedProgress();
     void reset();
 
     SpeechToTextWhisper *m_whisper{nullptr};
@@ -61,6 +68,10 @@ private:
     Phase m_phase{Phase::Idle};
     ResourceBudget m_budget;
     quintptr m_nativeBudgetHandle{0};
+    QByteArray m_processOutput;
+    QElapsedTimer m_phaseTimer;
+    QString m_progressPhase;
+    int m_lastProgress{-1};
 };
 
 } // namespace AiEditor

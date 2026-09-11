@@ -29,6 +29,8 @@ QString SecureCredentialStore::credentialTarget(AiProvider provider)
     case AiProvider::Anthropic:
         suffix = QStringLiteral("Anthropic");
         break;
+    case AiProvider::Ollama:
+        return {};
     }
     return QStringLiteral("Firawynix.Kdenlive.AiEditor.%1").arg(suffix);
 }

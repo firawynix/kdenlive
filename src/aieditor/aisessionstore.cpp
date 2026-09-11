@@ -208,7 +208,7 @@ std::optional<AiSessionCheckpoint> AiSessionStore::deserialize(const QByteArray 
         checkpoint.planFragments << fragment.toString();
     }
     if (checkpoint.version != 1 || safeFileId(checkpoint.id).isEmpty() || safeFileId(checkpoint.timelineFingerprint).isEmpty() || provider < 0 ||
-        provider > 2 || checkpoint.model.isEmpty() || checkpoint.prompt.isEmpty() || checkpoint.timelineFrames < 1 || checkpoint.fps <= 0.0 ||
+        provider > 3 || checkpoint.model.isEmpty() || checkpoint.prompt.isEmpty() || checkpoint.timelineFrames < 1 || checkpoint.fps <= 0.0 ||
         checkpoint.transcript.isEmpty() || checkpoint.nextChunk < 0 || checkpoint.nextChunk != checkpoint.planFragments.size()) {
         return std::nullopt;
     }

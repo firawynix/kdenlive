@@ -34,6 +34,7 @@ LocalTimelineTranscriber::LocalTimelineTranscriber(QObject *parent)
     , m_process(new QProcess(this))
 {
     m_process->setProcessChannelMode(QProcess::MergedChannels);
+    connect(m_process, &QProcess::readyReadStandardOutput, this, &LocalTimelineTranscriber::consumeProcessOutput);
     connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this, &LocalTimelineTranscriber::finishProcess);
 }
 
@@ -115,6 +116,7 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
         return;
     }
     m_phase = Phase::ExportAudio;
+    beginProgressPhase(i18n("Preparing timeline audio"));
     configureProcessEnvironment();
     m_process->start(KdenliveSettings::meltpath(),
                      {QStringLiteral("-progress"), scenePath, QStringLiteral("-consumer"), QStringLiteral("avformat:%1").arg(m_audioPath),
@@ -142,6 +144,7 @@ void LocalTimelineTranscriber::startWhisper()
         arguments << QStringLiteral("fp16=False");
     }
     m_phase = Phase::Transcribe;
+    beginProgressPhase(i18n("Transcribing locally with Whisper"));
     configureProcessEnvironment();
     m_process->start(m_whisper->venvPythonExecs().python, arguments);
     if (!m_process->waitForStarted(5000)) {
@@ -198,8 +201,34 @@ QString LocalTimelineTranscriber::selectAvailableModel(const QString &configured
     return installedModels.value(0);
 }
 
+int LocalTimelineTranscriber::parseProgressPercent(const QByteArray &output, bool whisperPhase)
+{
+    const QString text = QString::fromUtf8(output);
+    const QRegularExpression expression(whisperPhase ? QStringLiteral(R"((\d{1,3})%\|)") : QStringLiteral(R"(percentage:\s*(\d{1,3}))"),
+                                        QRegularExpression::CaseInsensitiveOption);
+    int percent = -1;
+    auto matches = expression.globalMatch(text);
+    while (matches.hasNext()) {
+        bool ok = false;
+        const int candidate = matches.next().captured(1).toInt(&ok);
+        if (ok) {
+            percent = qBound(0, candidate, 100);
+        }
+    }
+    return percent;
+}
+
+qint64 LocalTimelineTranscriber::estimateRemainingSeconds(qint64 elapsedMilliseconds, int percent)
+{
+    if (elapsedMilliseconds < 1000 || percent <= 0 || percent >= 100) {
+        return -1;
+    }
+    return qMax<qint64>(0, qRound64(double(elapsedMilliseconds) * double(100 - percent) / double(percent) / 1000.0));
+}
+
 void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus status)
 {
+    consumeProcessOutput();
     releaseNativeBudget();
     if (m_cancelRequested) {
         reset();
@@ -209,7 +238,7 @@ void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus 
     }
     if (status != QProcess::NormalExit || exitCode != 0) {
         const Phase failedPhase = m_phase;
-        QString details = QString::fromUtf8(m_process->readAll()).trimmed();
+        QString details = QString::fromUtf8(m_processOutput).trimmed();
         if (details.size() > 600) {
             details = details.right(600);
         }
@@ -221,7 +250,7 @@ void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus 
     }
 
     if (m_phase == Phase::ExportAudio) {
-        m_process->readAll();
+        Q_EMIT progressChanged(100, 0, m_progressPhase);
         if (!QFileInfo::exists(m_audioPath) || QFileInfo(m_audioPath).size() == 0) {
             reset();
             Q_EMIT busyChanged(false);
@@ -239,6 +268,7 @@ void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus 
         Q_EMIT errorOccurred(i18n("Whisper finished without producing a readable transcript."));
         return;
     }
+    Q_EMIT progressChanged(100, 0, m_progressPhase);
     const QString transcript = parseSrt(file.readAll(), m_fps);
     const QString fingerprint = m_timelineFingerprint;
     if (!transcript.isEmpty()) {
@@ -251,6 +281,39 @@ void LocalTimelineTranscriber::finishProcess(int exitCode, QProcess::ExitStatus 
     } else {
         Q_EMIT transcriptReady(transcript, fingerprint);
     }
+}
+
+void LocalTimelineTranscriber::consumeProcessOutput()
+{
+    const QByteArray incoming = m_process->readAllStandardOutput();
+    if (incoming.isEmpty()) {
+        return;
+    }
+    m_processOutput.append(incoming);
+    constexpr qsizetype MaximumDiagnosticBytes = 64 * 1024;
+    if (m_processOutput.size() > MaximumDiagnosticBytes) {
+        m_processOutput = m_processOutput.right(MaximumDiagnosticBytes);
+    }
+    emitParsedProgress();
+}
+
+void LocalTimelineTranscriber::beginProgressPhase(const QString &phase)
+{
+    m_processOutput.clear();
+    m_progressPhase = phase;
+    m_lastProgress = -1;
+    m_phaseTimer.restart();
+    Q_EMIT progressChanged(0, -1, phase);
+}
+
+void LocalTimelineTranscriber::emitParsedProgress()
+{
+    const int percent = parseProgressPercent(m_processOutput, m_phase == Phase::Transcribe);
+    if (percent < 0 || percent == m_lastProgress) {
+        return;
+    }
+    m_lastProgress = percent;
+    Q_EMIT progressChanged(percent, estimateRemainingSeconds(m_phaseTimer.elapsed(), percent), m_progressPhase);
 }
 
 void LocalTimelineTranscriber::configureProcessEnvironment()
@@ -286,6 +349,9 @@ void LocalTimelineTranscriber::reset()
     m_timelineFingerprint.clear();
     m_model.clear();
     m_fps = 0.0;
+    m_processOutput.clear();
+    m_progressPhase.clear();
+    m_lastProgress = -1;
     m_tempDir.reset();
 }
 

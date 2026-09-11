@@ -27,6 +27,16 @@ TEST_CASE("AI local transcription selects an installed Whisper model", "[AIEdito
     REQUIRE(LocalTimelineTranscriber::selectAvailableModel(QStringLiteral("turbo"), {}).isEmpty());
 }
 
+TEST_CASE("AI local transcription parses tool progress and estimates remaining time", "[AIEditor][Transcript][Progress]")
+{
+    REQUIRE(LocalTimelineTranscriber::parseProgressPercent("frame=10 percentage: 7\npercentage: 42", false) == 42);
+    REQUIRE(LocalTimelineTranscriber::parseProgressPercent(" 18%|##       |\r 63%|######   |", true) == 63);
+    REQUIRE(LocalTimelineTranscriber::parseProgressPercent("no progress here", true) == -1);
+    REQUIRE(LocalTimelineTranscriber::estimateRemainingSeconds(10000, 25) == 30);
+    REQUIRE(LocalTimelineTranscriber::estimateRemainingSeconds(100, 25) == -1);
+    REQUIRE(LocalTimelineTranscriber::estimateRemainingSeconds(10000, 0) == -1);
+}
+
 TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Semantic]")
 {
     auto binModel = pCore->projectItemModel();

@@ -20,3 +20,9 @@
 - [x] T10 (ASC-13): Add bounded transcript segmentation, atomic transcript and
   provider-fragment checkpoints, safe resume, provider token ceilings, and
   focused regression tests.
+- [x] T11 (ASC-14): Parse local tool progress, display an approximate ETA, and
+  cover the parser and estimator with focused tests.
+- [x] T12 (ASC-15): Add Ollama request support, hardware recommendation,
+  explicit runtime/model setup, and local-provider UI/tests.
+- [ ] T13: Build at low concurrency, run focused tests, install only after the
+  user's current analysis exits, document the feature, and publish the branch.

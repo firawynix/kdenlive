@@ -124,6 +124,8 @@ QString AiProviderClient::displayName(AiProvider provider)
         return QStringLiteral("OpenAI");
     case AiProvider::Anthropic:
         return QStringLiteral("Anthropic Claude");
+    case AiProvider::Ollama:
+        return QStringLiteral("Local AI (Ollama)");
     }
     return {};
 }
@@ -137,6 +139,8 @@ QString AiProviderClient::environmentVariable(AiProvider provider)
         return QStringLiteral("OPENAI_API_KEY");
     case AiProvider::Anthropic:
         return QStringLiteral("ANTHROPIC_API_KEY");
+    case AiProvider::Ollama:
+        return {};
     }
     return {};
 }
@@ -150,6 +154,8 @@ QString AiProviderClient::defaultModel(AiProvider provider)
         return QStringLiteral("gpt-5-mini");
     case AiProvider::Anthropic:
         return QStringLiteral("claude-sonnet-5");
+    case AiProvider::Ollama:
+        return QStringLiteral("qwen3:8b");
     }
     return {};
 }
@@ -157,6 +163,10 @@ QString AiProviderClient::defaultModel(AiProvider provider)
 BuiltAiRequest AiProviderClient::buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey)
 {
     BuiltAiRequest result;
+    if (provider == AiProvider::Ollama) {
+        result.url = QUrl(QStringLiteral("http://127.0.0.1:11434/api/tags"));
+        return result;
+    }
     if (apiKey.trimmed().isEmpty()) {
         result.error = QStringLiteral("The API key is missing.");
         return result;
@@ -183,7 +193,7 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
         result.error = QStringLiteral("Choose a model before sending the request.");
         return result;
     }
-    if (apiKey.trimmed().isEmpty()) {
+    if (provider != AiProvider::Ollama && apiKey.trimmed().isEmpty()) {
         result.error = QStringLiteral("The API key is missing. Set %1 and restart Kdenlive.").arg(environmentVariable(provider));
         return result;
     }
@@ -206,7 +216,13 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
 
     QJsonObject body;
     body.insert(QStringLiteral("model"), model.trimmed());
-    if (provider == AiProvider::Anthropic) {
+    if (provider == AiProvider::Ollama) {
+        result.url = QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat"));
+        body.insert(QStringLiteral("messages"), messages);
+        body.insert(QStringLiteral("stream"), false);
+        body.insert(QStringLiteral("format"), schema);
+        body.insert(QStringLiteral("options"), QJsonObject{{QStringLiteral("temperature"), 0}, {QStringLiteral("num_predict"), 16384}});
+    } else if (provider == AiProvider::Anthropic) {
         result.url = QUrl(QStringLiteral("https://api.anthropic.com/v1/messages"));
         result.headers.push_back({QByteArrayLiteral("x-api-key"), apiKey});
         result.headers.push_back({QByteArrayLiteral("anthropic-version"), QByteArrayLiteral("2023-06-01")});
@@ -249,7 +265,10 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     const QJsonObject root = document.object();
     QString content;
     QString finishReason;
-    if (provider == AiProvider::Anthropic) {
+    if (provider == AiProvider::Ollama) {
+        finishReason = root.value(QStringLiteral("done_reason")).toString();
+        content = root.value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
+    } else if (provider == AiProvider::Anthropic) {
         finishReason = root.value(QStringLiteral("stop_reason")).toString();
         const QJsonArray blocks = root.value(QStringLiteral("content")).toArray();
         for (const QJsonValue &blockValue : blocks) {
@@ -358,7 +377,7 @@ void AiProviderClient::startRequest(const BuiltAiRequest &built, AiProvider prov
     for (const auto &header : built.headers) {
         request.setRawHeader(header.first, header.second);
     }
-    request.setTransferTimeout(180000);
+    request.setTransferTimeout(provider == AiProvider::Ollama ? 30 * 60 * 1000 : 180000);
     m_activeProvider = provider;
     m_requestKind = kind;
     m_cancelRequested = false;

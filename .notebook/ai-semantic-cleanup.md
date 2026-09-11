@@ -16,6 +16,12 @@
   transcript for seven days. Provider work is divided into bounded segments;
   every completed segment is saved atomically, without credentials, and a
   matching retry resumes from the next segment.
+- Melt `percentage:` output and Whisper tqdm `%|` output feed a visible progress
+  bar. ETA is elapsed-rate based and remains unavailable until a reliable
+  percentage exists.
+- `LocalAiManager` provides the Ollama lifecycle. It detects CPU/memory/display
+  adapter, recommends a Qwen3 size, installs only after an explicit click,
+  streams pull progress, and restricts requests to `127.0.0.1:11434`.
 
 ## Windows setup
 
@@ -38,7 +44,7 @@
    export and Whisper, with safe CPU-thread, GPU/device, and memory/cache
    controls. Treat the percentage as best effort rather than an exact hardware
    utilization guarantee.
-2. Add phase-aware progress for every long-running local operation. The
+2. [Done] Add phase-aware progress for every long-running local operation. The
    assistant must show the current phase, percentage, elapsed time, and rolling
    estimated time remaining for audio preparation and Whisper transcription.
    Provider requests must show elapsed time and an indeterminate state when the
@@ -62,3 +68,6 @@
    Brazilian Portuguese as the recommended default on a Brazilian Portuguese
    system, persist the choice, and keep the language change available later in
    settings without showing the first-run prompt again.
+8. [Done] Add a no-key local AI provider with hardware recommendation and
+   explicit Ollama/model setup. Keep local inference text/transcript based until
+   a separately reviewed local vision-frame pipeline is added.

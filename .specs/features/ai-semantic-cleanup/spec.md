@@ -37,6 +37,14 @@ the selected AI provider.
   key-free checkpoints after transcription and after every completed request.
   A retry or application restart must resume the matching timeline analysis
   without repeating completed work.
+- ASC-14: Show phase-aware progress and an approximate remaining time while
+  exporting timeline audio, running Whisper, downloading a local model, and
+  processing transcript segments. Unknown progress must remain visibly active
+  instead of pretending to have an exact percentage.
+- ASC-15: Offer a key-free local AI provider through Ollama. Detect the host
+  CPU, memory, and display adapter, recommend a model conservatively, and let
+  the user explicitly install the runtime and download that model from the
+  dock. Local requests must be restricted to the loopback address.
 
 ## Acceptance criteria
 
@@ -58,3 +66,7 @@ the selected AI provider.
   latest completed checkpoint.
 - Checkpoint files contain transcript text and validated plan fragments, but
   never API keys. Cached transcripts expire after seven days.
+- Long local stages visibly advance when their tools expose progress and show
+  an approximate ETA after enough samples exist.
+- Selecting local AI hides cloud credentials, explains the recommended model
+  and its download size, and never sends prompts or transcripts off-device.

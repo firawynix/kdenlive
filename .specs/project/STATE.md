@@ -5,8 +5,8 @@
 
 ## Decisions
 
-- OpenRouter, direct OpenAI, and direct Anthropic Claude are supported through
-  one provider-neutral client.
+- OpenRouter, direct OpenAI, direct Anthropic Claude, and local Ollama are
+  supported through one provider-neutral client.
 - AI responses are treated as untrusted data and parsed into a closed operation set.
 - Plans are previewed before explicit application.
 - Timeline changes must be atomic and compatible with Kdenlive undo/redo.
@@ -43,6 +43,12 @@
   Timeline-fingerprinted transcripts and completed plan fragments are saved
   locally without credentials, allowing a matching retry or restart to resume
   after a token limit, timeout, cancellation, or connection failure.
+- Audio export, Whisper, provider segments, and local model downloads now feed
+  a phase-aware progress bar with an approximate elapsed-rate ETA where a real
+  percentage is available.
+- The local Ollama option detects CPU threads, system memory, and the active
+  display adapter, recommends a Qwen3 size, and offers explicit runtime/model
+  setup without requiring or storing an API key. Requests are loopback-only.
 - The current OpenRouter account has a valid key but no purchased credits. The
   tested default is `nex-agi/nex-n2.5-mini:free`; a live structured-output probe
   succeeded on 2026-09-10. Paid Claude access returned HTTP 402 until credits
@@ -52,10 +58,6 @@
 
 ## Deferred Ideas
 
-- Progress UI for machine-intensive work: separate audio-export,
-  transcription, and provider phases; show percentage where measurable,
-  elapsed time, and a rolling ETA without blocking cancellation. This is the
-  next requested usability improvement after the current long-video test.
 - Complete Brazilian Portuguese localization, including every fork-specific
   AI, performance, credential, progress, and error string.
 - First-launch language selection before the main window, with Brazilian
