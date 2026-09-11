@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "26.11.70-firaw.1",
+    [string]$Version = "26.11.70-firaw.2",
     [string]$BuildDirectory = "C:\_\3377f5a\build",
     [string]$CraftRoot = "C:\CraftRoot",
     [string]$PayloadArchive = ""

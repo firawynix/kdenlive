@@ -7,8 +7,8 @@
 
 #include "editplan.hpp"
 
-#include <functional>
 #include <QString>
+#include <functional>
 #include <memory>
 
 class TimelineItemModel;
@@ -16,9 +16,18 @@ class TimelineItemModel;
 namespace Kdenlive {
 namespace AiEditor {
 
+struct AppliedEditOperation
+{
+    EditOperation operation;
+    std::function<bool()> undo;
+    std::function<bool()> redo;
+    std::function<bool()> isApplied;
+};
+
 struct EditPlanExecutionResult
 {
     QString error;
+    QVector<AppliedEditOperation> appliedOperations;
     bool isValid() const;
 };
 
@@ -33,11 +42,12 @@ class EditPlanExecutor
 {
 public:
     using ProgressCallback = std::function<void(int completed, int total)>;
+    using StateChangedCallback = std::function<void()>;
 
     static EditPlanExecutionResult preflight(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
     static CompatibleEditPlan compatiblePlan(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
-    static EditPlanExecutionResult apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan,
-                                         const ProgressCallback &progress = {});
+    static EditPlanExecutionResult apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan, const ProgressCallback &progress = {},
+                                         const StateChangedCallback &stateChanged = {});
 };
 
 } // namespace AiEditor

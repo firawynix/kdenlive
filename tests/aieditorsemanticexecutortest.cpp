@@ -92,6 +92,7 @@ TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Seman
     REQUIRE(result.isValid());
     REQUIRE(completedOperations == 2);
     REQUIRE(totalOperations == 2);
+    REQUIRE(result.appliedOperations.size() == 2);
     REQUIRE(undoStack->index() == undoIndex + 1);
     const int mutedAudio = timeline->getClipByPosition(audioTrack, 50);
     REQUIRE(mutedAudio >= 0);
@@ -101,12 +102,27 @@ TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Seman
     REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(videoTrack, 200)) == 25);
     REQUIRE(timeline->checkConsistency());
 
+    const auto &muteEdit = result.appliedOperations.at(0);
+    REQUIRE(muteEdit.operation.type == EditOperationType::MuteRange);
+    REQUIRE(muteEdit.isApplied());
+    REQUIRE(muteEdit.undo());
+    REQUIRE_FALSE(muteEdit.isApplied());
+    REQUIRE(timeline->getClipByPosition(audioTrack, 50) == audioClip);
+    REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(videoTrack, 200)) == 25);
+    REQUIRE(timeline->checkConsistency());
+
     undoStack->undo();
     REQUIRE(timeline->getClipByPosition(videoTrack, 50) == videoClip);
     REQUIRE(timeline->getClipByPosition(audioTrack, 50) == audioClip);
     REQUIRE(timeline->getItemPlaytime(videoClip) == 500);
     REQUIRE(timeline->getItemPlaytime(audioClip) == 500);
     REQUIRE(timeline->getClipState(audioClip).first == PlaylistState::AudioOnly);
+    REQUIRE(timeline->checkConsistency());
+
+    undoStack->redo();
+    REQUIRE(muteEdit.isApplied());
+    REQUIRE(timeline->getClipState(timeline->getClipByPosition(audioTrack, 50)).first == PlaylistState::Disabled);
+    REQUIRE(timeline->getItemPlaytime(timeline->getClipByPosition(videoTrack, 200)) == 25);
     REQUIRE(timeline->checkConsistency());
 
     pCore->projectManager()->closeCurrentDocument(false, false);

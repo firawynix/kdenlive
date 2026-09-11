@@ -7,7 +7,7 @@
 
 #include "aiproviderclient.hpp"
 #include "aisessionstore.hpp"
-#include "editplan.hpp"
+#include "editplanexecutor.hpp"
 
 #include <QElapsedTimer>
 #include <QWidget>
@@ -45,6 +45,7 @@ private:
     void saveCredential();
     void removeCredential();
     void testCredential();
+    void updateLocalSetupButton();
     void updatePerformanceSummary();
     void loadSavedPrompts();
     void savePrompt();
@@ -65,6 +66,9 @@ private:
     void showPlan(const QByteArray &planJson);
     void applyPlan();
     void discardPlan();
+    void refreshAppliedEditControls();
+    void toggleSelectedAppliedEdit();
+    QString appliedEditSummary(const AppliedEditOperation &edit, int requestNumber) const;
     void setStatus(const QString &message, bool error = false);
     void setBusy(bool busy);
     void showProgress(int percent, qint64 remainingSeconds, const QString &phase);
@@ -107,6 +111,9 @@ private:
     QLabel *m_progressDetails{nullptr};
     QPushButton *m_apply{nullptr};
     QPushButton *m_discard{nullptr};
+    QGroupBox *m_appliedChangesGroup{nullptr};
+    QComboBox *m_appliedEdits{nullptr};
+    QPushButton *m_toggleAppliedEdit{nullptr};
     EditPlan m_plan;
     bool m_hasPlan{false};
     QString m_pendingPrompt;
@@ -114,6 +121,10 @@ private:
     AiSessionCheckpoint m_checkpoint;
     bool m_chunkedRequest{false};
     bool m_applyInProgress{false};
+    QVector<AppliedEditOperation> m_appliedOperations;
+    QVector<int> m_appliedRequestNumbers;
+    std::weak_ptr<TimelineItemModel> m_appliedTimeline;
+    int m_appliedRequestNumber{0};
     QElapsedTimer m_providerTimer;
     int m_providerStartChunk{0};
     enum class TranscriptionPurpose { EditPlan, PromptSuggestions };

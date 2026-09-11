@@ -12,9 +12,9 @@
     <AssemblyName>Firawynix-Kdenlive-Launcher</AssemblyName>
     <RootNamespace>Firawynix.Kdenlive.Launcher</RootNamespace>
     <ApplicationIcon>../../../data/icons/kdenlive.ico</ApplicationIcon>
-    <Version>26.11.70-firaw.1</Version>
-    <AssemblyVersion>26.11.70.1</AssemblyVersion>
-    <FileVersion>26.11.70.1</FileVersion>
-    <InformationalVersion>26.11.70-firaw.1</InformationalVersion>
+    <Version>26.11.70-firaw.2</Version>
+    <AssemblyVersion>26.11.70.2</AssemblyVersion>
+    <FileVersion>26.11.70.2</FileVersion>
+    <InformationalVersion>26.11.70-firaw.2</InformationalVersion>
   </PropertyGroup>
 </Project>

@@ -18,6 +18,25 @@ namespace Kdenlive {
 namespace AiEditor {
 
 namespace {
+struct AppliedOperationState
+{
+    Fun undo;
+    Fun redo;
+    bool applied{true};
+
+    bool setApplied(bool apply)
+    {
+        if (applied == apply) {
+            return true;
+        }
+        const bool success = apply ? redo() : undo();
+        if (success) {
+            applied = apply;
+        }
+        return success;
+    }
+};
+
 EditPlanExecutionResult preflightOperation(const std::shared_ptr<TimelineItemModel> &timeline, const EditOperation &operation)
 {
     EditPlanExecutionResult result;
@@ -85,7 +104,8 @@ CompatibleEditPlan EditPlanExecutor::compatiblePlan(const std::shared_ptr<Timeli
     return result;
 }
 
-EditPlanExecutionResult EditPlanExecutor::apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan, const ProgressCallback &progress)
+EditPlanExecutionResult EditPlanExecutor::apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan, const ProgressCallback &progress,
+                                                const StateChangedCallback &stateChanged)
 {
     auto result = preflight(timeline, plan);
     if (!result.isValid()) {
@@ -129,19 +149,56 @@ EditPlanExecutionResult EditPlanExecutor::apply(const std::shared_ptr<TimelineIt
             progress(int(index + 1), int(operations.size()));
         }
     }
-    Fun undo = [steps = std::move(undoSteps)]() mutable {
+    QVector<std::shared_ptr<AppliedOperationState>> states;
+    states.reserve(operations.size());
+    result.appliedOperations.reserve(operations.size());
+    for (qsizetype index = 0; index < operations.size(); ++index) {
+        auto state = std::make_shared<AppliedOperationState>();
+        state->undo = std::move(undoSteps[index]);
+        state->redo = std::move(redoSteps[index]);
+        states.push_back(state);
+
+        AppliedEditOperation applied;
+        applied.operation = operations[index];
+        applied.undo = [state, stateChanged]() {
+            const bool success = state->setApplied(false);
+            if (success && stateChanged) {
+                stateChanged();
+            }
+            return success;
+        };
+        applied.redo = [state, stateChanged]() {
+            const bool success = state->setApplied(true);
+            if (success && stateChanged) {
+                stateChanged();
+            }
+            return success;
+        };
+        applied.isApplied = [state]() { return state->applied; };
+        result.appliedOperations.push_back(std::move(applied));
+    }
+    std::sort(result.appliedOperations.begin(), result.appliedOperations.end(),
+              [](const AppliedEditOperation &left, const AppliedEditOperation &right) { return left.operation.startFrame() < right.operation.startFrame(); });
+
+    Fun undo = [states, stateChanged]() mutable {
         bool restored = true;
-        for (auto it = steps.rbegin(); it != steps.rend(); ++it) {
-            const bool stepRestored = (*it)();
+        for (auto it = states.rbegin(); it != states.rend(); ++it) {
+            const bool stepRestored = (*it)->setApplied(false);
             restored = stepRestored && restored;
+        }
+        if (restored && stateChanged) {
+            stateChanged();
         }
         return restored;
     };
-    Fun redo = [steps = std::move(redoSteps)]() mutable {
+    Fun redo = [states, stateChanged]() mutable {
         bool restored = true;
-        for (Fun &step : steps) {
-            const bool stepRestored = step();
+        for (const auto &state : states) {
+            const bool stepRestored = state->setApplied(true);
             restored = stepRestored && restored;
+        }
+        if (restored && stateChanged) {
+            stateChanged();
         }
         return restored;
     };

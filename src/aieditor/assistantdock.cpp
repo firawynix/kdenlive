@@ -34,9 +34,11 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QSlider>
 #include <QSpinBox>
 #include <QTime>
@@ -221,6 +223,15 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     applyButtons->addWidget(m_discard);
     layout->addLayout(applyButtons);
 
+    m_appliedChangesGroup = new QGroupBox(i18n("Applied changes"), this);
+    auto *appliedChangesLayout = new QVBoxLayout(m_appliedChangesGroup);
+    m_appliedEdits = new QComboBox(m_appliedChangesGroup);
+    m_toggleAppliedEdit = new QPushButton(i18n("Undo selected change"), m_appliedChangesGroup);
+    appliedChangesLayout->addWidget(m_appliedEdits);
+    appliedChangesLayout->addWidget(m_toggleAppliedEdit);
+    m_appliedChangesGroup->hide();
+    layout->addWidget(m_appliedChangesGroup);
+
     connect(m_provider, &QComboBox::currentIndexChanged, this, &AssistantDock::updateProvider);
     connect(m_saveKey, &QPushButton::clicked, this, &AssistantDock::saveCredential);
     connect(m_removeKey, &QPushButton::clicked, this, &AssistantDock::removeCredential);
@@ -255,6 +266,7 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_generate, &QPushButton::clicked, this, &AssistantDock::generatePlan);
     connect(m_model, &QLineEdit::editingFinished, this, [this]() {
         if (selectedProvider() == AiProvider::Ollama && !m_localAi->isBusy()) {
+            updateLocalSetupButton();
             m_localAi->refresh(m_model->text());
         }
     });
@@ -266,6 +278,8 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     });
     connect(m_apply, &QPushButton::clicked, this, &AssistantDock::applyPlan);
     connect(m_discard, &QPushButton::clicked, this, &AssistantDock::discardPlan);
+    connect(m_appliedEdits, &QComboBox::currentIndexChanged, this, [this]() { refreshAppliedEditControls(); });
+    connect(m_toggleAppliedEdit, &QPushButton::clicked, this, &AssistantDock::toggleSelectedAppliedEdit);
     connect(m_client, &AiProviderClient::busyChanged, this, &AssistantDock::setBusy);
     connect(m_client, &AiProviderClient::planReady, this, &AssistantDock::handleProviderPlan);
     connect(m_client, &AiProviderClient::promptSuggestionsReady, this, &AssistantDock::handlePromptSuggestions);
@@ -293,10 +307,11 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_localAi, &LocalAiManager::progressChanged, this, &AssistantDock::showProgress);
     connect(m_localAi, &LocalAiManager::readyChanged, this, [this](bool ready) {
         Q_UNUSED(ready)
-        m_localSetup->setText(i18n("Prepare / download local model"));
+        updateLocalSetupButton();
     });
     connect(m_localAi, &LocalAiManager::statusChanged, this, [this](const QString &message, bool error) {
         m_localStatus->setText(error ? i18n("Error: %1", message) : message);
+        updateLocalSetupButton();
         setStatus(message, error);
         if (!m_localAi->isBusy()) {
             hideProgress();
@@ -328,6 +343,7 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     loadSavedPrompts();
     updateProvider();
     updatePerformanceSummary();
+    refreshAppliedEditControls();
 }
 
 AiProvider AssistantDock::selectedProvider() const
@@ -373,6 +389,19 @@ void AssistantDock::updateProvider()
         m_localHardware->setText(i18n("%1\nRecommended model: %2 (approximately %3 download).\n%4", m_localAi->hardwareSummary(), recommendation,
                                       LocalAiManager::approximateDownloadSize(recommendation), m_localAi->recommendationReason()));
         m_localAi->refresh(m_model->text());
+    }
+    updateLocalSetupButton();
+}
+
+void AssistantDock::updateLocalSetupButton()
+{
+    const QString model = m_model->text().trimmed().isEmpty() ? m_localAi->recommendedModel() : m_model->text().trimmed();
+    if (LocalAiManager::ollamaExecutable().isEmpty()) {
+        m_localSetup->setText(i18n("Install Ollama and download %1 (%2)", model, LocalAiManager::approximateDownloadSize(model)));
+    } else if (m_localAi->isModelReady(model)) {
+        m_localSetup->setText(i18n("Local model %1 is ready", model));
+    } else {
+        m_localSetup->setText(i18n("Download and prepare %1 (%2)", model, LocalAiManager::approximateDownloadSize(model)));
     }
 }
 
@@ -986,16 +1015,24 @@ void AssistantDock::applyPlan()
     applyTimer.start();
     paintTimer.start();
     showProgress(0, -1, i18n("Applying AI edit plan"));
-    const auto result = EditPlanExecutor::apply(timelineWidget->model(), m_plan, [this, &applyTimer, &paintTimer](int completed, int total) {
-        if (paintTimer.elapsed() < 100 && completed < total) {
-            return;
-        }
-        const double secondsPerOperation = double(applyTimer.elapsed()) / 1000.0 / double(completed);
-        const qint64 remainingSeconds = qRound64(secondsPerOperation * double(total - completed));
-        showProgress(qRound(double(completed) * 100.0 / double(total)), remainingSeconds, i18n("Applying timeline edits · %1 of %2", completed, total));
-        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
-        paintTimer.restart();
-    });
+    const QPointer<AssistantDock> guard(this);
+    const auto result = EditPlanExecutor::apply(
+        timelineWidget->model(), m_plan,
+        [this, &applyTimer, &paintTimer](int completed, int total) {
+            if (paintTimer.elapsed() < 100 && completed < total) {
+                return;
+            }
+            const double secondsPerOperation = double(applyTimer.elapsed()) / 1000.0 / double(completed);
+            const qint64 remainingSeconds = qRound64(secondsPerOperation * double(total - completed));
+            showProgress(qRound(double(completed) * 100.0 / double(total)), remainingSeconds, i18n("Applying timeline edits · %1 of %2", completed, total));
+            QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+            paintTimer.restart();
+        },
+        [guard]() {
+            if (guard) {
+                guard->refreshAppliedEditControls();
+            }
+        });
     m_applyInProgress = false;
     setBusy(false);
     if (!result.isValid()) {
@@ -1008,11 +1045,26 @@ void AssistantDock::applyPlan()
     m_apply->setEnabled(false);
     m_discard->setEnabled(false);
     m_hasPlan = false;
+    const auto previousTimeline = m_appliedTimeline.lock();
+    if (previousTimeline && previousTimeline.get() != timelineWidget->model().get()) {
+        m_appliedOperations.clear();
+        m_appliedRequestNumbers.clear();
+        m_appliedRequestNumber = 0;
+    }
+    m_appliedTimeline = timelineWidget->model();
+    ++m_appliedRequestNumber;
+    for (const AppliedEditOperation &operation : result.appliedOperations) {
+        m_appliedOperations.push_back(operation);
+        m_appliedRequestNumbers.push_back(m_appliedRequestNumber);
+    }
     AiSessionStore::remove(m_checkpoint.id);
     m_checkpoint = {};
     m_transcriptChunks.clear();
     hideProgress();
-    setStatus(i18n("Edit applied. Use Undo once to restore the previous timeline."));
+    m_generate->setText(i18n("Generate another adjustment"));
+    m_prompt->setPlaceholderText(i18n("Describe an additional adjustment. The next plan will use the timeline as it is now."));
+    refreshAppliedEditControls();
+    setStatus(i18n("Edit applied. You can undo one selected change below, or describe another adjustment and generate a new plan."));
 }
 
 void AssistantDock::discardPlan()
@@ -1026,6 +1078,86 @@ void AssistantDock::discardPlan()
     if (!m_client->isBusy()) {
         setStatus(QString());
     }
+}
+
+QString AssistantDock::appliedEditSummary(const AppliedEditOperation &edit, int requestNumber) const
+{
+    const double fps = pCore->getCurrentFps();
+    if (edit.operation.type == EditOperationType::RetimeRange) {
+        const auto &operation = edit.operation.retimeRange;
+        return i18n("Request %1 · Speed %2 to %3 to %4", requestNumber, formatFrames(operation.startFrame, fps), formatFrames(operation.endFrame, fps),
+                    formatFrames(operation.targetDurationFrames, fps));
+    }
+    return i18n("Request %1 · Mute %2 to %3", requestNumber, formatFrames(edit.operation.startFrame(), fps), formatFrames(edit.operation.endFrame(), fps));
+}
+
+void AssistantDock::refreshAppliedEditControls()
+{
+    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
+    const auto appliedTimeline = m_appliedTimeline.lock();
+    if (!m_appliedOperations.isEmpty() &&
+        (!timelineWidget || !timelineWidget->model() || !appliedTimeline || timelineWidget->model().get() != appliedTimeline.get())) {
+        m_appliedOperations.clear();
+        m_appliedRequestNumbers.clear();
+        m_appliedTimeline.reset();
+        m_appliedRequestNumber = 0;
+    }
+
+    const QSignalBlocker blocker(m_appliedEdits);
+    const int previousIndex = m_appliedEdits->currentIndex();
+    m_appliedEdits->clear();
+    for (qsizetype index = 0; index < m_appliedOperations.size(); ++index) {
+        const AppliedEditOperation &edit = m_appliedOperations.at(index);
+        const bool applied = edit.isApplied && edit.isApplied();
+        m_appliedEdits->addItem(i18n("[%1] %2", applied ? i18n("Applied") : i18n("Undone"), appliedEditSummary(edit, m_appliedRequestNumbers.value(index, 1))));
+    }
+    if (!m_appliedOperations.isEmpty()) {
+        m_appliedEdits->setCurrentIndex(qBound(0, previousIndex, int(m_appliedOperations.size()) - 1));
+    }
+    const int selected = m_appliedEdits->currentIndex();
+    const bool hasSelection = selected >= 0 && selected < m_appliedOperations.size();
+    const bool selectedApplied = hasSelection && m_appliedOperations.at(selected).isApplied && m_appliedOperations.at(selected).isApplied();
+    m_toggleAppliedEdit->setText(selectedApplied ? i18n("Undo selected change") : i18n("Redo selected change"));
+    m_toggleAppliedEdit->setEnabled(hasSelection);
+    m_appliedChangesGroup->setVisible(hasSelection);
+}
+
+void AssistantDock::toggleSelectedAppliedEdit()
+{
+    refreshAppliedEditControls();
+    const int selected = m_appliedEdits->currentIndex();
+    if (selected < 0 || selected >= m_appliedOperations.size()) {
+        setStatus(i18n("Select an applied change first."), true);
+        return;
+    }
+
+    const AppliedEditOperation edit = m_appliedOperations.at(selected);
+    const bool wasApplied = edit.isApplied && edit.isApplied();
+    const bool success = wasApplied ? edit.undo() : edit.redo();
+    if (!success) {
+        setStatus(i18n("The selected change could not be updated because the timeline no longer matches its applied state."), true);
+        return;
+    }
+
+    const QPointer<AssistantDock> guard(this);
+    Fun undo = [edit, wasApplied, guard]() {
+        const bool restored = wasApplied ? edit.redo() : edit.undo();
+        if (guard) {
+            guard->refreshAppliedEditControls();
+        }
+        return restored;
+    };
+    Fun redo = [edit, wasApplied, guard]() {
+        const bool restored = wasApplied ? edit.undo() : edit.redo();
+        if (guard) {
+            guard->refreshAppliedEditControls();
+        }
+        return restored;
+    };
+    pCore->pushUndo(undo, redo, wasApplied ? i18n("AI: Undo selected change") : i18n("AI: Redo selected change"));
+    refreshAppliedEditControls();
+    setStatus(wasApplied ? i18n("Selected change undone. Use the button again to redo it, or describe another adjustment above.")
+                         : i18n("Selected change reapplied."));
 }
 
 void AssistantDock::setStatus(const QString &message, bool error)
@@ -1056,6 +1188,8 @@ void AssistantDock::setBusy(bool busy)
     m_suggestPrompts->setEnabled(!anyBusy);
     m_analyzeAudio->setEnabled(!anyBusy);
     m_cancel->setEnabled(anyBusy && !m_applyInProgress);
+    m_appliedEdits->setEnabled(!anyBusy && m_appliedEdits->count() > 0);
+    m_toggleAppliedEdit->setEnabled(!anyBusy && m_appliedEdits->currentIndex() >= 0);
     if (anyBusy && m_client->isBusy() && !m_chunkedRequest) {
         setStatus(i18n("Waiting for the AI provider…"));
     } else if (!anyBusy && !m_hasPlan) {

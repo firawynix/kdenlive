@@ -33,7 +33,7 @@ Verified result on 2026-09-10: 1/1 passed, 0 failed.
 
 ## Runtime
 
-The installed development build is `C:\CraftRoot\bin\kdenlive.exe`. Activate
+The installed development build is `C:\CraftRoot\bin\firawynix-kdenlive.exe`. Activate
 the Craft environment before launching it so all DLL and data paths resolve.
 
 Craft can warn that Windows Developer Mode is disabled. That warning only means

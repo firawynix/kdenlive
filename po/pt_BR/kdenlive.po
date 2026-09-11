@@ -48768,3 +48768,63 @@ msgstr "%1. Acelerar intervalo\n   %2 a %3 · %4 → %5 · %6x · preservar tom:
 
 msgid "%1. Mute audio\n   %2 to %3 · duration %4"
 msgstr "%1. Silenciar áudio\n   %2 a %3 · duração %4"
+
+msgid "Applied changes"
+msgstr "Alterações aplicadas"
+
+msgid "Undo selected change"
+msgstr "Desfazer alteração selecionada"
+
+msgid "Redo selected change"
+msgstr "Refazer alteração selecionada"
+
+msgid "Install Ollama and download %1 (%2)"
+msgstr "Instalar o Ollama e baixar %1 (%2)"
+
+msgid "Download and prepare %1 (%2)"
+msgstr "Baixar e preparar %1 (%2)"
+
+msgid "Local model %1 is ready"
+msgstr "O modelo local %1 está pronto"
+
+msgid "Generate another adjustment"
+msgstr "Gerar outro ajuste"
+
+msgid "Describe an additional adjustment. The next plan will use the timeline as it is now."
+msgstr "Descreva um ajuste adicional. O próximo plano usará a linha do tempo como ela está agora."
+
+msgid "Edit applied. You can undo one selected change below, or describe another adjustment and generate a new plan."
+msgstr "Edição aplicada. Você pode desfazer uma alteração selecionada abaixo ou descrever outro ajuste e gerar um novo plano."
+
+msgid "Request %1 · Speed %2 to %3 to %4"
+msgstr "Solicitação %1 · Acelerar de %2 a %3 para %4"
+
+msgid "Request %1 · Mute %2 to %3"
+msgstr "Solicitação %1 · Silenciar de %2 a %3"
+
+msgid "Applied"
+msgstr "Aplicada"
+
+msgid "Undone"
+msgstr "Desfeita"
+
+msgid "[%1] %2"
+msgstr "[%1] %2"
+
+msgid "Select an applied change first."
+msgstr "Selecione primeiro uma alteração aplicada."
+
+msgid "The selected change could not be updated because the timeline no longer matches its applied state."
+msgstr "Não foi possível atualizar a alteração selecionada porque a linha do tempo não corresponde mais ao estado em que ela foi aplicada."
+
+msgid "AI: Undo selected change"
+msgstr "IA: Desfazer alteração selecionada"
+
+msgid "AI: Redo selected change"
+msgstr "IA: Refazer alteração selecionada"
+
+msgid "Selected change undone. Use the button again to redo it, or describe another adjustment above."
+msgstr "Alteração selecionada desfeita. Use o botão novamente para refazê-la ou descreva outro ajuste acima."
+
+msgid "Selected change reapplied."
+msgstr "Alteração selecionada reaplicada."
