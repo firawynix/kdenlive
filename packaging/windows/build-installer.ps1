@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "26.11.70-firaw.3",
+    [string]$Version = "26.11.70-firaw.4",
     [string]$BuildDirectory = "C:\_\3377f5a\build",
     [string]$CraftRoot = "C:\CraftRoot",
     [string]$PayloadArchive = ""
@@ -43,7 +43,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if ([string]::IsNullOrWhiteSpace($PayloadArchive)) {
-    python (Join-Path $CraftRoot "craft\bin\craft.py") --options "[Packager]PackageType=SevenZipPackager" --package kde/kdemultimedia/kdenlive
+    python (Join-Path $CraftRoot "craft\bin\craft.py") --options "[Packager]PackageType=PortablePackager" --package kde/kdemultimedia/kdenlive
     if ($LASTEXITCODE -ne 0) {
         throw "O Craft não conseguiu criar o pacote portátil."
     }
@@ -80,10 +80,27 @@ if ($nestedRoot -and -not (Test-Path (Join-Path $stage "bin"))) {
     Remove-Item -LiteralPath $nestedRoot.FullName -Force
 }
 
+$runtimeChecks = @(
+    @{ Pattern = "avcodec-*.dll"; Label = "FFmpeg (avcodec)" },
+    @{ Pattern = "Qt6Core.dll"; Label = "Qt 6 Core" }
+)
+foreach ($runtimeCheck in $runtimeChecks) {
+    $runtimeMatch = Get-ChildItem -LiteralPath (Join-Path $stage "bin") -Filter $runtimeCheck.Pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $runtimeMatch) {
+        throw "O pacote portátil está incompleto: $($runtimeCheck.Label) não foi encontrado em bin."
+    }
+}
+
 New-Item -ItemType Directory -Path (Join-Path $stage "bin\data\locale\pt_BR\LC_MESSAGES") -Force | Out-Null
 Copy-Item -LiteralPath $editor -Destination (Join-Path $stage "bin\firawynix-kdenlive.exe") -Force
 Copy-Item -LiteralPath $translation -Destination (Join-Path $stage "bin\data\locale\pt_BR\LC_MESSAGES\kdenlive.mo") -Force
-Copy-Item -LiteralPath $splashQml -Destination (Join-Path $stage "qml\org\kde\kdenlive\Splash.qml") -Force
+$splashDestination = Get-ChildItem -LiteralPath $stage -Recurse -File -Filter "Splash.qml" |
+    Where-Object { $_.FullName -match "[\\/]org[\\/]kde[\\/]kdenlive[\\/]Splash\.qml$" } |
+    Select-Object -First 1 -ExpandProperty FullName
+if (-not $splashDestination) {
+    throw "O pacote portátil não contém o módulo QML da tela inicial do Kdenlive."
+}
+Copy-Item -LiteralPath $splashQml -Destination $splashDestination -Force
 Copy-Item -LiteralPath (Join-Path $launcherOutput "Firawynix-Kdenlive-Launcher.exe") -Destination (Join-Path $stage "Firawynix-Kdenlive-Launcher.exe") -Force
 $legacyEditor = Join-Path $stage "bin\kdenlive.exe"
 if (Test-Path -LiteralPath $legacyEditor) {
