@@ -180,10 +180,23 @@ TEST_CASE("Local Ollama provider is loopback-only and needs no credential", "[AI
     REQUIRE(request.url == QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat")));
     const QJsonObject body = QJsonDocument::fromJson(request.body).object();
     REQUIRE(body.value(QStringLiteral("stream")).toBool() == false);
+    REQUIRE(body.value(QStringLiteral("think")).toBool() == false);
     REQUIRE(body.value(QStringLiteral("format")).toObject().value(QStringLiteral("type")).toString() == QLatin1String("object"));
     REQUIRE(request.headers.size() == 1);
 
     const auto result = AiProviderClient::completeResponse(AiProvider::Ollama, 200, QNetworkReply::NoError, false, ollamaResponse(ValidPlan));
     INFO(result.error.toStdString());
     REQUIRE(result.isValid());
+}
+
+TEST_CASE("Local Ollama chunk responses safely normalize reversed or empty ranges", "[AIEditor][Provider][Local]")
+{
+    const QByteArray plan =
+        R"({"version":1,"operations":[{"type":"mute_range","start_frame":300,"end_frame":200},{"type":"mute_range","start_frame":400,"end_frame":400}]})";
+    const auto result = AiProviderClient::completeResponse(AiProvider::Ollama, 200, QNetworkReply::NoError, false, ollamaResponse(plan), true);
+    INFO(result.error.toStdString());
+    REQUIRE(result.isValid());
+    REQUIRE(result.plan.operations.size() == 1);
+    REQUIRE(result.plan.operations.constFirst().muteRange.startFrame == 200);
+    REQUIRE(result.plan.operations.constFirst().muteRange.endFrame == 300);
 }

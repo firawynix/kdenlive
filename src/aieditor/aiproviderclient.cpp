@@ -66,8 +66,9 @@ QString systemPrompt()
         "interval without dialogue on both sides. If the user asks to compress silence, create retime_range only for qualifying gaps between transcript lines, "
         "never over speech; calculate the requested target duration in frames and preserve pitch. Interpret explicit timecodes using the supplied FPS, round "
         "to "
-        "the nearest frame, make end_frame exclusive, and use target_duration_frames for the requested final duration. Operations must not overlap. Never "
-        "invent edits that the user did not request. Example at 25 FPS: instruction 'mute vacation talk and compress silence over 2 seconds to 0.5 seconds', "
+        "the nearest frame, make end_frame exclusive, and use target_duration_frames for the requested final duration. Operations must not overlap. For "
+        "every operation, end_frame must be strictly greater than start_frame; never reverse the values or emit a zero-length range. Never invent edits "
+        "that the user did not request. Example at 25 FPS: instruction 'mute vacation talk and compress silence over 2 seconds to 0.5 seconds', "
         "transcript '[0-40] vacation plans' and '[110-160] Salesforce work' produces mute_range 0-40 and retime_range 40-110 with "
         "target_duration_frames=13 and preserve_pitch=true. It does not edit 110-160 or trailing silence, and never emits a no-op retime. If the supplied "
         "transcript segment contains no requested edit, return version 1 with an empty operations array.");
@@ -96,6 +97,52 @@ QByteArray extractApiError(const QByteArray &payload)
         return error.toString().toUtf8();
     }
     return {};
+}
+
+QByteArray normalizeLocalChunkPlan(const QByteArray &planJson)
+{
+    QJsonParseError error;
+    const QJsonDocument document = QJsonDocument::fromJson(planJson, &error);
+    if (error.error != QJsonParseError::NoError || !document.isObject()) {
+        return planJson;
+    }
+    QJsonObject root = document.object();
+    const QJsonValue operationsValue = root.value(QStringLiteral("operations"));
+    if (!operationsValue.isArray()) {
+        return planJson;
+    }
+
+    QJsonArray normalized;
+    for (const QJsonValue &value : operationsValue.toArray()) {
+        if (!value.isObject()) {
+            normalized.append(value);
+            continue;
+        }
+        QJsonObject operation = value.toObject();
+        const QJsonValue startValue = operation.value(QStringLiteral("start_frame"));
+        const QJsonValue endValue = operation.value(QStringLiteral("end_frame"));
+        if (!startValue.isDouble() || !endValue.isDouble()) {
+            normalized.append(operation);
+            continue;
+        }
+        const qint64 startFrame = startValue.toInteger(-1);
+        const qint64 endFrame = endValue.toInteger(-1);
+        if (startFrame < 0 || endFrame < 0) {
+            normalized.append(operation);
+            continue;
+        }
+        if (startFrame == endFrame) {
+            // A zero-length edit changes nothing and is safe to omit.
+            continue;
+        }
+        if (endFrame < startFrame) {
+            operation.insert(QStringLiteral("start_frame"), endFrame);
+            operation.insert(QStringLiteral("end_frame"), startFrame);
+        }
+        normalized.append(operation);
+    }
+    root.insert(QStringLiteral("operations"), normalized);
+    return QJsonDocument(root).toJson(QJsonDocument::Compact);
 }
 } // namespace
 
@@ -220,6 +267,7 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
         result.url = QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat"));
         body.insert(QStringLiteral("messages"), messages);
         body.insert(QStringLiteral("stream"), false);
+        body.insert(QStringLiteral("think"), false);
         body.insert(QStringLiteral("format"), schema);
         body.insert(QStringLiteral("options"), QJsonObject{{QStringLiteral("temperature"), 0}, {QStringLiteral("num_predict"), 16384}});
     } else if (provider == AiProvider::Anthropic) {
@@ -297,6 +345,9 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     }
 
     result.planJson = content.toUtf8();
+    if (provider == AiProvider::Ollama && allowEmptyPlan) {
+        result.planJson = normalizeLocalChunkPlan(result.planJson);
+    }
     const auto parsed = parseEditPlan(result.planJson, allowEmptyPlan);
     if (!parsed.isValid()) {
         result.planJson.clear();

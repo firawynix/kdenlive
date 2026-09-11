@@ -53,3 +53,9 @@ unique saved request with the same normalized prompt, timeline duration, and
 FPS. When exactly one timeline fingerprint matches, its embedded transcript is
 reused and provider handoff begins immediately. If different timelines match
 those coarse fields, transcription runs normally so separate media is not mixed.
+
+For local chunk responses only, deterministic normalization swaps a strictly
+reversed frame pair and removes zero-length operations before the complete plan
+is parsed again by the same strict safety validator. Ollama reasoning output is
+disabled for this schema-constrained classification task to reduce per-segment
+latency; the final plan still requires local validation and explicit Apply.
