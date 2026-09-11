@@ -8,8 +8,8 @@
 #include "bin/model/subtitlemodel.hpp"
 #include "core.h"
 #include "macros.hpp"
-#include "timeline2/model/timelineitemmodel.hpp"
 #include "timeline2/model/timelinefunctions.hpp"
+#include "timeline2/model/timelineitemmodel.hpp"
 
 #include <KLocalizedString>
 #include <QPoint>
@@ -29,16 +29,15 @@ bool RetimeRangeExecutionResult::isValid() const
     return error.isEmpty();
 }
 
-RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<TimelineItemModel> &timeline,
-                                                          const RetimeRangeOperation &operation)
+RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<TimelineItemModel> &timeline, const RetimeRangeOperation &operation)
 {
     RetimeRangePreflightResult result;
     if (!timeline) {
-        result.error = QStringLiteral("No active timeline is available.");
+        result.error = i18n("No active timeline is available.");
         return result;
     }
     if (operation.startFrame < 0 || operation.endFrame <= operation.startFrame || operation.targetDurationFrames < 1) {
-        result.error = QStringLiteral("The retime range is invalid.");
+        result.error = i18n("The retime range is invalid.");
         return result;
     }
 
@@ -47,7 +46,7 @@ RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<
     const auto subtitleModel = timeline->getSubtitleModel();
     const auto subtitles = subtitleModel ? subtitleModel->getItemsInRange(-1, operation.startFrame, -1) : std::unordered_set<int>{};
     if (!subtitles.empty()) {
-        result.error = QStringLiteral("The range cannot be retimed while subtitles exist at or after its start.");
+        result.error = i18n("The range cannot be retimed while subtitles exist at or after its start.");
         return result;
     }
 
@@ -57,13 +56,13 @@ RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<
     for (int trackId : allTracks) {
         const auto laterItems = timeline->getItemsInRange(trackId, operation.startFrame, -1, true);
         if (timeline->trackIsLocked(trackId) && !laterItems.empty()) {
-            result.error = QStringLiteral("A locked track contains content that would be affected by the retime.");
+            result.error = i18n("A locked track contains content that would be affected by the retime.");
             return result;
         }
 
         for (int itemId : laterItems) {
             if (timeline->isComposition(itemId)) {
-                result.error = QStringLiteral("Compositions at or after the range start are not supported yet.");
+                result.error = i18n("Compositions at or after the range start are not supported yet.");
                 return result;
             }
         }
@@ -71,17 +70,17 @@ RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<
         const auto rangeItems = timeline->getItemsInRange(trackId, operation.startFrame, operation.endFrame - 1, true);
         for (int itemId : rangeItems) {
             if (!timeline->isClip(itemId)) {
-                result.error = QStringLiteral("The selected range contains an unsupported timeline item.");
+                result.error = i18n("The selected range contains an unsupported timeline item.");
                 return result;
             }
             if (timeline->getItemPosition(itemId) > operation.startFrame || timeline->getItemEnd(itemId) < operation.endFrame) {
-                result.error = QStringLiteral("The selected range must be covered by one continuous clip on each affected track.");
+                result.error = i18n("The selected range must be covered by one continuous clip on each affected track.");
                 return result;
             }
 
             const auto mixRange = timeline->getMixInOut(itemId);
             if (mixRange.first >= 0 || mixRange.second >= 0 || timeline->getMixDuration(itemId) > 0) {
-                result.error = QStringLiteral("Clips participating in a same-track mix cannot be retimed yet.");
+                result.error = i18n("Clips participating in a same-track mix cannot be retimed yet.");
                 return result;
             }
             affectedClips.insert(itemId);
@@ -90,19 +89,19 @@ RetimeRangePreflightResult RetimeRangeExecutor::preflight(const std::shared_ptr<
     }
 
     if (affectedClips.empty()) {
-        result.error = QStringLiteral("No clip covers the selected range.");
+        result.error = i18n("No clip covers the selected range.");
         return result;
     }
 
     const int representative = *affectedClips.begin();
     const auto groupElements = timeline->getGroupElements(representative);
     if (groupElements.size() != affectedClips.size()) {
-        result.error = QStringLiteral("All clips covering the range must belong to the same aligned group.");
+        result.error = i18n("All clips covering the range must belong to the same aligned group.");
         return result;
     }
     for (int clipId : affectedClips) {
         if (groupElements.count(clipId) == 0) {
-            result.error = QStringLiteral("All clips covering the range must belong to the same aligned group.");
+            result.error = i18n("All clips covering the range must belong to the same aligned group.");
             return result;
         }
     }
@@ -131,14 +130,14 @@ RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<Ti
         return result;
     }
     if (operation.targetDurationFrames > operation.endFrame - operation.startFrame) {
-        result.error = QStringLiteral("Making a range longer is not supported yet.");
+        result.error = i18n("Making a range longer is not supported yet.");
         return result;
     }
 
     const int representativeTrack = timeline->getClipTrackId(validation.clipIds.constFirst());
     int segmentId = timeline->getClipByPosition(representativeTrack, operation.startFrame);
     if (segmentId < 0) {
-        result.error = QStringLiteral("The clip at the range start could not be resolved.");
+        result.error = i18n("The clip at the range start could not be resolved.");
         return result;
     }
 
@@ -152,28 +151,27 @@ RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<Ti
     if (timeline->getItemPosition(segmentId) < operation.startFrame) {
         if (!TimelineFunctions::requestClipCut(timeline, segmentId, operation.startFrame, undo, redo)) {
             rollBack();
-            result.error = QStringLiteral("Could not cut the clips at the range start.");
+            result.error = i18n("Could not cut the clips at the range start.");
             return result;
         }
         segmentId = timeline->getClipByPosition(representativeTrack, operation.startFrame);
     }
     if (segmentId < 0 || timeline->getItemPosition(segmentId) != operation.startFrame) {
         rollBack();
-        result.error = QStringLiteral("The range start did not produce an exact clip boundary.");
+        result.error = i18n("The range start did not produce an exact clip boundary.");
         return result;
     }
 
-    if (timeline->getItemEnd(segmentId) > operation.endFrame
-        && !TimelineFunctions::requestClipCut(timeline, segmentId, operation.endFrame, undo, redo)) {
+    if (timeline->getItemEnd(segmentId) > operation.endFrame && !TimelineFunctions::requestClipCut(timeline, segmentId, operation.endFrame, undo, redo)) {
         rollBack();
-        result.error = QStringLiteral("Could not cut the clips at the range end.");
+        result.error = i18n("Could not cut the clips at the range end.");
         return result;
     }
 
     segmentId = timeline->getClipByPosition(representativeTrack, operation.startFrame);
     if (segmentId < 0) {
         rollBack();
-        result.error = QStringLiteral("The isolated range could not be resolved.");
+        result.error = i18n("The isolated range could not be resolved.");
         return result;
     }
 
@@ -181,7 +179,7 @@ RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<Ti
     for (int clipId : segments) {
         if (!timeline->isClip(clipId) || timeline->getItemPosition(clipId) != operation.startFrame || timeline->getItemEnd(clipId) != operation.endFrame) {
             rollBack();
-            result.error = QStringLiteral("The range did not isolate an aligned clip group.");
+            result.error = i18n("The range did not isolate an aligned clip group.");
             return result;
         }
     }
@@ -189,12 +187,12 @@ RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<Ti
     for (int clipId : segments) {
         if (!timeline->requestClipTimeWarp(clipId, operation.speedMultiplier(), operation.preservePitch, true, undo, redo)) {
             rollBack();
-            result.error = QStringLiteral("Kdenlive could not apply the requested speed to every clip.");
+            result.error = i18n("Kdenlive could not apply the requested speed to every clip.");
             return result;
         }
         if (timeline->getItemPlaytime(clipId) != operation.targetDurationFrames) {
             rollBack();
-            result.error = QStringLiteral("The requested duration cannot be represented exactly in this project.");
+            result.error = i18n("The requested duration cannot be represented exactly in this project.");
             return result;
         }
         result.retimedClipIds.push_back(clipId);
@@ -214,7 +212,7 @@ RetimeRangeExecutionResult RetimeRangeExecutor::execute(const std::shared_ptr<Ti
         if (!TimelineFunctions::removeSpace(timeline, QPoint(retimedEnd, operation.endFrame), rippleUndo, rippleRedo, allTracks, false)) {
             rollBack();
             result.retimedClipIds.clear();
-            result.error = QStringLiteral("The timeline could not close the space left by the retime.");
+            result.error = i18n("The timeline could not close the space left by the retime.");
             return result;
         }
         UPDATE_UNDO_REDO_NOLOCK(rippleRedo, rippleUndo, undo, redo);

@@ -299,7 +299,7 @@ target_link_libraries(kdenliveLib PUBLIC KDAB::kddockwidgets)
 target_link_libraries(kdenliveLib PUBLIC FFmpeg::FFmpeg)
 
 if(WIN32)
-    target_link_libraries(kdenliveLib PUBLIC d3d11 d3dcompiler advapi32)
+    target_link_libraries(kdenliveLib PUBLIC d3d11 d3dcompiler dxgi advapi32)
 endif()
 
 if(USE_DBUS)

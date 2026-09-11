@@ -22,12 +22,12 @@ EditPlanExecutionResult preflightOperation(const std::shared_ptr<TimelineItemMod
 {
     EditPlanExecutionResult result;
     if (operation.endFrame() > timeline->duration()) {
-        result.error = QStringLiteral("An edit operation extends beyond the active timeline.");
+        result.error = i18n("An edit operation extends beyond the active timeline.");
         return result;
     }
     if (operation.type == EditOperationType::RetimeRange) {
         if (operation.retimeRange.targetDurationFrames > operation.retimeRange.endFrame - operation.retimeRange.startFrame) {
-            result.error = QStringLiteral("Making a range longer is not supported yet.");
+            result.error = i18n("Making a range longer is not supported yet.");
             return result;
         }
         const auto validation = RetimeRangeExecutor::preflight(timeline, operation.retimeRange);
@@ -49,7 +49,7 @@ EditPlanExecutionResult EditPlanExecutor::preflight(const std::shared_ptr<Timeli
 {
     EditPlanExecutionResult result;
     if (!timeline || plan.operations.isEmpty()) {
-        result.error = QStringLiteral("No valid edit plan is available.");
+        result.error = i18n("No valid edit plan is available.");
         return result;
     }
     for (const EditOperation &operation : plan.operations) {
@@ -67,7 +67,7 @@ CompatibleEditPlan EditPlanExecutor::compatiblePlan(const std::shared_ptr<Timeli
     result.plan.version = plan.version;
     if (!timeline) {
         result.skippedOperations = int(plan.operations.size());
-        result.firstSkippedReason = QStringLiteral("No active timeline is available.");
+        result.firstSkippedReason = i18n("No active timeline is available.");
         return result;
     }
     result.plan.operations.reserve(plan.operations.size());

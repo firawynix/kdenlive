@@ -79,3 +79,36 @@ iterative aggregate undo action. This avoids recursive closure depth growing
 with every edit. The apply callback is throttled to roughly ten UI updates per
 second, allowing the dock to show percentage and ETA while excluding user input
 until the atomic application succeeds or rolls back.
+
+## Prompt library and transcript suggestions
+
+The assistant stores user-named prompts in the application's KConfig under the
+`AiEditorPrompts` group. Names, prompt text, and the associated local-audio
+analysis choice are persisted together. Built-in prompts cannot be deleted;
+saved prompts can be updated by saving the same name or removed explicitly.
+
+Transcript-driven prompt suggestions use a separate structured-output schema
+in `aiproviderclient.cpp`. `AssistantDock` divides the cached local transcript
+into larger analysis segments, collects suggestions from every segment, and
+asks the selected provider to consolidate them into a short final list. The
+suggestions are temporary until the user chooses Save prompt. This flow does
+not create or apply timeline operations.
+
+Only timestamped speech is available to this suggestion flow. The system prompt
+therefore forbids claims about frozen frames, missing screen sharing, or other
+visual states. Those require a future local frame-analysis pipeline rather than
+guessing from silence.
+
+## Local model recommendation
+
+On Windows, `LocalAiManager::detectHardware()` uses DXGI to read the active
+adapter name and dedicated video memory in addition to CPU threads and system
+memory. The recommended Qwen model is selected from GPU memory when available,
+with CPU/RAM fallbacks for integrated or unreported adapters. The existing
+Prepare action installs Ollama through Windows Package Manager, starts its
+loopback service, downloads the recommendation with progress/ETA, and verifies
+the model without handling project media.
+
+All AI-editor user-facing strings and executor/parser errors are translatable.
+The fork's `po/pt_BR/kdenlive.po` includes the Brazilian Portuguese catalog for
+the complete AI workflow.

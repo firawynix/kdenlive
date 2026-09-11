@@ -43,6 +43,20 @@ struct AiProviderResponse
     bool isValid() const;
 };
 
+struct PromptSuggestion
+{
+    QString title;
+    QString prompt;
+};
+
+struct PromptSuggestionResponse
+{
+    QVector<PromptSuggestion> suggestions;
+    QString error;
+
+    bool isValid() const;
+};
+
 class AiProviderClient : public QObject
 {
     Q_OBJECT
@@ -56,19 +70,24 @@ public:
     static BuiltAiRequest buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey);
     static BuiltAiRequest buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
                                        double fps, const QString &transcript = QString(), bool allowEmptyPlan = false);
+    static BuiltAiRequest buildPromptSuggestionRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &context,
+                                                       bool consolidate = false);
     static QByteArray normalizeLocalPlan(const QByteArray &planJson);
     static AiProviderResponse parseSuccessfulResponse(AiProvider provider, const QByteArray &payload, bool allowEmptyPlan = false);
+    static PromptSuggestionResponse parsePromptSuggestionResponse(AiProvider provider, const QByteArray &payload);
     static AiProviderResponse completeResponse(AiProvider provider, int httpStatus, QNetworkReply::NetworkError networkError, bool wasCancelled,
                                                const QByteArray &payload, bool allowEmptyPlan = false);
 
     bool isBusy() const;
     void requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
                      const QString &transcript = QString(), bool allowEmptyPlan = false);
+    void requestPromptSuggestions(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &context, bool consolidate = false);
     void testConnection(AiProvider provider, const QByteArray &apiKey);
     void cancel();
 
 Q_SIGNALS:
     void planReady(const QByteArray &validatedPlanJson);
+    void promptSuggestionsReady(const QVector<PromptSuggestion> &suggestions);
     void errorOccurred(const QString &message);
     void outputLimitReached(const QString &message);
     void requestCancelled();
@@ -76,7 +95,7 @@ Q_SIGNALS:
     void busyChanged(bool busy);
 
 private:
-    enum class RequestKind { EditPlan, ConnectionTest };
+    enum class RequestKind { EditPlan, PromptSuggestions, ConnectionTest };
     void startRequest(const BuiltAiRequest &built, AiProvider provider, RequestKind kind);
     void setBusy(bool busy);
 

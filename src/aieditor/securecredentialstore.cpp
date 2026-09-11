@@ -5,6 +5,8 @@
 
 #include "securecredentialstore.hpp"
 
+#include <KLocalizedString>
+
 #ifdef Q_OS_WIN
 // wincred.h depends on Windows base types and must follow windows.h with MinGW.
 // clang-format off
@@ -63,7 +65,7 @@ QByteArray SecureCredentialStore::read(AiProvider provider, QString *error)
     PCREDENTIALW credential = nullptr;
     if (!CredReadW(reinterpret_cast<LPCWSTR>(target.utf16()), CRED_TYPE_GENERIC, 0, &credential)) {
         if (GetLastError() != ERROR_NOT_FOUND && error) {
-            *error = QStringLiteral("Windows could not read the saved credential (error %1).").arg(GetLastError());
+            *error = i18n("Windows could not read the saved credential (error %1).", GetLastError());
         }
         return {};
     }
@@ -84,7 +86,7 @@ bool SecureCredentialStore::write(AiProvider provider, const QByteArray &apiKey,
     const QByteArray cleaned = apiKey.trimmed();
     if (cleaned.isEmpty() || cleaned.size() > 2048) {
         if (error) {
-            *error = QStringLiteral("Enter a valid API key no longer than 2048 bytes.");
+            *error = i18n("Enter a valid API key no longer than 2048 bytes.");
         }
         return false;
     }
@@ -100,7 +102,7 @@ bool SecureCredentialStore::write(AiProvider provider, const QByteArray &apiKey,
     credential.UserName = const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(username.utf16()));
     if (!CredWriteW(&credential, 0)) {
         if (error) {
-            *error = QStringLiteral("Windows could not save the credential (error %1).").arg(GetLastError());
+            *error = i18n("Windows could not save the credential (error %1).", GetLastError());
         }
         return false;
     }
@@ -108,7 +110,7 @@ bool SecureCredentialStore::write(AiProvider provider, const QByteArray &apiKey,
 #else
     Q_UNUSED(provider)
     if (error) {
-        *error = QStringLiteral("Secure in-app credential storage is not available on this platform; use the provider environment variable.");
+        *error = i18n("Secure in-app credential storage is not available on this platform; use the provider environment variable.");
     }
     return false;
 #endif
@@ -125,13 +127,13 @@ bool SecureCredentialStore::remove(AiProvider provider, QString *error)
         return true;
     }
     if (error) {
-        *error = QStringLiteral("Windows could not remove the credential (error %1).").arg(GetLastError());
+        *error = i18n("Windows could not remove the credential (error %1).", GetLastError());
     }
     return false;
 #else
     Q_UNUSED(provider)
     if (error) {
-        *error = QStringLiteral("There is no saved in-app credential on this platform.");
+        *error = i18n("There is no saved in-app credential on this platform.");
     }
     return false;
 #endif

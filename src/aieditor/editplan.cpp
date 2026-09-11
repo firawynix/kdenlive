@@ -5,6 +5,7 @@
 
 #include "editplan.hpp"
 
+#include <KLocalizedString>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -24,14 +25,14 @@ bool readFrame(const QJsonObject &object, const QString &name, int minimum, int 
 {
     const QJsonValue value = object.value(name);
     if (!value.isDouble()) {
-        error = QStringLiteral("Operation field '%1' must be an integer.").arg(name);
+        error = i18n("Operation field '%1' must be an integer.", name);
         return false;
     }
 
     const qint64 invalid = std::numeric_limits<qint64>::min();
     const qint64 frame = value.toInteger(invalid);
     if (frame == invalid || frame < minimum || frame > std::numeric_limits<int>::max()) {
-        error = QStringLiteral("Operation field '%1' is outside the supported frame range.").arg(name);
+        error = i18n("Operation field '%1' is outside the supported frame range.", name);
         return false;
     }
 
@@ -48,14 +49,14 @@ bool parseRetimeRange(const QJsonObject &object, RetimeRangeOperation &operation
     }
 
     if (operation.endFrame <= operation.startFrame) {
-        error = QStringLiteral("Operation field 'end_frame' must be greater than 'start_frame'.");
+        error = i18n("Operation field 'end_frame' must be greater than 'start_frame'.");
         return false;
     }
 
     const QJsonValue preservePitch = object.value(QStringLiteral("preserve_pitch"));
     if (!preservePitch.isUndefined()) {
         if (!preservePitch.isBool()) {
-            error = QStringLiteral("Operation field 'preserve_pitch' must be a boolean.");
+            error = i18n("Operation field 'preserve_pitch' must be a boolean.");
             return false;
         }
         operation.preservePitch = preservePitch.toBool();
@@ -70,7 +71,7 @@ bool parseMuteRange(const QJsonObject &object, MuteRangeOperation &operation, QS
         return false;
     }
     if (operation.endFrame <= operation.startFrame) {
-        error = QStringLiteral("Operation field 'end_frame' must be greater than 'start_frame'.");
+        error = i18n("Operation field 'end_frame' must be greater than 'start_frame'.");
         return false;
     }
     return true;
@@ -101,50 +102,49 @@ EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty)
 {
     EditPlanParseResult result;
     if (json.isEmpty()) {
-        result.error = QStringLiteral("The edit plan is empty.");
+        result.error = i18n("The edit plan is empty.");
         return result;
     }
     if (json.size() > MaxPlanSize) {
-        result.error = QStringLiteral("The edit plan exceeds the 256 KiB size limit.");
+        result.error = i18n("The edit plan exceeds the 256 KiB size limit.");
         return result;
     }
 
     QJsonParseError parseError;
     const QJsonDocument document = QJsonDocument::fromJson(json, &parseError);
     if (parseError.error != QJsonParseError::NoError) {
-        result.error = QStringLiteral("Invalid edit plan JSON at byte %1: %2").arg(parseError.offset).arg(parseError.errorString());
+        result.error = i18n("Invalid edit plan JSON at byte %1: %2", parseError.offset, parseError.errorString());
         return result;
     }
     if (!document.isObject()) {
-        result.error = QStringLiteral("The edit plan root must be an object.");
+        result.error = i18n("The edit plan root must be an object.");
         return result;
     }
 
     const QJsonObject root = document.object();
     const QJsonValue versionValue = root.value(QStringLiteral("version"));
     if (!versionValue.isDouble() || versionValue.toInteger(-1) != 1) {
-        result.error = QStringLiteral("Unsupported or missing edit plan version; expected version 1.");
+        result.error = i18n("Unsupported or missing edit plan version; expected version 1.");
         return result;
     }
     result.plan.version = 1;
 
     const QJsonValue operationsValue = root.value(QStringLiteral("operations"));
     if (!operationsValue.isArray()) {
-        result.error = QStringLiteral("Edit plan field 'operations' must be an array.");
+        result.error = i18n("Edit plan field 'operations' must be an array.");
         return result;
     }
 
     const QJsonArray operations = operationsValue.toArray();
     if ((!allowEmpty && operations.isEmpty()) || operations.size() > MaxOperationCount) {
-        result.error = allowEmpty ? QStringLiteral("Edit plan must contain at most 4096 operations.")
-                                  : QStringLiteral("Edit plan must contain between 1 and 4096 operations.");
+        result.error = allowEmpty ? i18n("Edit plan must contain at most 4096 operations.") : i18n("Edit plan must contain between 1 and 4096 operations.");
         return result;
     }
 
     result.plan.operations.reserve(operations.size());
     for (qsizetype index = 0; index < operations.size(); ++index) {
         if (!operations.at(index).isObject()) {
-            result.error = QStringLiteral("Operation %1 must be an object.").arg(index + 1);
+            result.error = i18n("Operation %1 must be an object.", index + 1);
             result.plan.operations.clear();
             return result;
         }
@@ -152,7 +152,7 @@ EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty)
         const QJsonObject object = operations.at(index).toObject();
         const QJsonValue typeValue = object.value(QStringLiteral("type"));
         if (!typeValue.isString()) {
-            result.error = QStringLiteral("Operation %1 has an unsupported or missing type.").arg(index + 1);
+            result.error = i18n("Operation %1 has an unsupported or missing type.", index + 1);
             result.plan.operations.clear();
             return result;
         }
@@ -163,19 +163,19 @@ EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty)
         if (type == QLatin1String("retime_range")) {
             operation.type = EditOperationType::RetimeRange;
             if (!parseRetimeRange(object, operation.retimeRange, operationError)) {
-                result.error = QStringLiteral("Operation %1 is invalid: %2").arg(index + 1).arg(operationError);
+                result.error = i18n("Operation %1 is invalid: %2", index + 1, operationError);
                 result.plan.operations.clear();
                 return result;
             }
         } else if (type == QLatin1String("mute_range")) {
             operation.type = EditOperationType::MuteRange;
             if (!parseMuteRange(object, operation.muteRange, operationError)) {
-                result.error = QStringLiteral("Operation %1 is invalid: %2").arg(index + 1).arg(operationError);
+                result.error = i18n("Operation %1 is invalid: %2", index + 1, operationError);
                 result.plan.operations.clear();
                 return result;
             }
         } else {
-            result.error = QStringLiteral("Operation %1 has an unsupported or missing type.").arg(index + 1);
+            result.error = i18n("Operation %1 has an unsupported or missing type.", index + 1);
             result.plan.operations.clear();
             return result;
         }
@@ -186,7 +186,7 @@ EditPlanParseResult parseEditPlan(const QByteArray &json, bool allowEmpty)
     std::sort(sorted.begin(), sorted.end(), [](const EditOperation &left, const EditOperation &right) { return left.startFrame() < right.startFrame(); });
     for (qsizetype index = 1; index < sorted.size(); ++index) {
         if (sorted.at(index).startFrame() < sorted.at(index - 1).endFrame()) {
-            result.error = QStringLiteral("Edit plan operations must not overlap.");
+            result.error = i18n("Edit plan operations must not overlap.");
             result.plan.operations.clear();
             return result;
         }

@@ -46,6 +46,15 @@ private:
     void removeCredential();
     void testCredential();
     void updatePerformanceSummary();
+    void loadSavedPrompts();
+    void savePrompt();
+    void deletePrompt();
+    void updatePromptButtons();
+    void suggestPrompts();
+    void startPromptSuggestions(const QString &transcript);
+    void requestNextPromptSuggestionChunk();
+    void handlePromptSuggestions(const QVector<PromptSuggestion> &suggestions);
+    void finishPromptSuggestions(const QVector<PromptSuggestion> &suggestions);
     void generatePlan();
     void requestProviderPlan(const QString &transcript = QString(), const QString &timelineFingerprint = QString());
     void requestNextTranscriptChunk();
@@ -85,6 +94,9 @@ private:
     QSpinBox *m_cpuThreads{nullptr};
     QComboBox *m_processingDevice{nullptr};
     QComboBox *m_preset{nullptr};
+    QPushButton *m_savePrompt{nullptr};
+    QPushButton *m_deletePrompt{nullptr};
+    QPushButton *m_suggestPrompts{nullptr};
     QCheckBox *m_analyzeAudio{nullptr};
     QPlainTextEdit *m_prompt{nullptr};
     QPushButton *m_generate{nullptr};
@@ -104,6 +116,12 @@ private:
     bool m_applyInProgress{false};
     QElapsedTimer m_providerTimer;
     int m_providerStartChunk{0};
+    enum class TranscriptionPurpose { EditPlan, PromptSuggestions };
+    TranscriptionPurpose m_transcriptionPurpose{TranscriptionPurpose::EditPlan};
+    QVector<TranscriptChunk> m_suggestionChunks;
+    QVector<PromptSuggestion> m_suggestionCandidates;
+    int m_suggestionChunk{0};
+    bool m_suggestionConsolidating{false};
 };
 
 } // namespace AiEditor

@@ -20,6 +20,7 @@ struct LocalAiHardware
     int cpuThreads{1};
     quint64 memoryBytes{0};
     QString displayAdapter;
+    quint64 videoMemoryBytes{0};
 };
 
 class LocalAiManager : public QObject
@@ -33,12 +34,14 @@ public:
     static QString recommendedModelForMemory(quint64 memoryBytes);
     static QString recommendedModelForHardware(const LocalAiHardware &hardware);
     static QString approximateDownloadSize(const QString &model);
+    static QString recommendationReason(const LocalAiHardware &hardware, const QString &model);
     static QString ollamaExecutable();
 
     bool isBusy() const;
     bool isReady() const;
     bool isModelReady(const QString &model) const;
     QString recommendedModel() const;
+    QString recommendationReason() const;
     QString hardwareSummary() const;
 
     void refresh(const QString &model = QString());

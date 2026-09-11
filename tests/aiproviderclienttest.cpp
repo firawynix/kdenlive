@@ -81,6 +81,34 @@ TEST_CASE("AI provider sends transcript text without media", "[AIEditor][Provide
     REQUIRE_FALSE(message.contains(QStringLiteral("data:")));
 }
 
+TEST_CASE("AI provider builds and validates prompt suggestions", "[AIEditor][Provider][Prompts]")
+{
+    const auto request =
+        AiProviderClient::buildPromptSuggestionRequest(AiProvider::Ollama, QStringLiteral("qwen3:8b"), {}, QStringLiteral("[0-100] reunião sobre Salesforce"));
+    INFO(request.error.toStdString());
+    REQUIRE(request.isValid());
+    REQUIRE(request.url == QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat")));
+    const QJsonObject body = QJsonDocument::fromJson(request.body).object();
+    REQUIRE(body.value(QStringLiteral("format")).toObject().value(QStringLiteral("properties")).toObject().contains(QStringLiteral("suggestions")));
+    REQUIRE(
+        body.value(QStringLiteral("messages")).toArray().at(1).toObject().value(QStringLiteral("content")).toString().contains(QStringLiteral("Salesforce")));
+
+    const QByteArray suggestions = R"({"suggestions":[{"title":"Foco no trabalho","prompt":"Silencie conversas fora do tema Salesforce."}]})";
+    const auto parsed = AiProviderClient::parsePromptSuggestionResponse(AiProvider::Ollama, ollamaResponse(suggestions));
+    INFO(parsed.error.toStdString());
+    REQUIRE(parsed.isValid());
+    REQUIRE(parsed.suggestions.size() == 1);
+    REQUIRE(parsed.suggestions.constFirst().title == QStringLiteral("Foco no trabalho"));
+    REQUIRE(parsed.suggestions.constFirst().prompt.contains(QStringLiteral("Salesforce")));
+}
+
+TEST_CASE("AI prompt suggestions reject malformed content", "[AIEditor][Provider][Prompts]")
+{
+    const auto parsed = AiProviderClient::parsePromptSuggestionResponse(AiProvider::OpenRouter, chatResponse(QByteArrayLiteral(R"({"suggestions":[]})")));
+    REQUIRE_FALSE(parsed.isValid());
+    REQUIRE_FALSE(parsed.error.isEmpty());
+}
+
 TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
 {
     SECTION("accepts OpenAI-compatible structured output")
@@ -117,8 +145,8 @@ TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
         const QByteArray payload = R"({"error":{"message":"invalid key"}})";
         const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 401, QNetworkReply::NoError, false, payload);
         REQUIRE_FALSE(result.isValid());
-        REQUIRE(result.error.contains(QStringLiteral("401")));
-        REQUIRE(result.error.contains(QStringLiteral("invalid key")));
+        REQUIRE(result.error.contains(QStringLiteral("API key")));
+        REQUIRE(result.error.contains(QStringLiteral("rejected")));
     }
 
     SECTION("prefers an HTTP provider error over Qt's generic network label")
@@ -126,8 +154,8 @@ TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
         const QByteArray payload = R"({"error":{"message":"insufficient credits"}})";
         const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 402, QNetworkReply::UnknownContentError, false, payload);
         REQUIRE_FALSE(result.isValid());
-        REQUIRE(result.error.contains(QStringLiteral("402")));
-        REQUIRE(result.error.contains(QStringLiteral("insufficient credits")));
+        REQUIRE(result.error.contains(QStringLiteral("credits")));
+        REQUIRE(result.error.contains(QStringLiteral("local model")));
     }
 
     SECTION("rejects unsafe plan")

@@ -48085,3 +48085,680 @@ msgstr "%1h"
 #~ msgctxt "@action:button"
 #~ msgid "Confirm"
 #~ msgstr "Confirmar"
+
+msgid "The API key is missing."
+msgstr "A chave da API está faltando."
+
+msgid "Choose a model before sending the request."
+msgstr "Escolha um modelo antes de enviar a solicitação."
+
+msgid "The API key is missing. Set %1 and restart Kdenlive."
+msgstr "A chave da API está faltando. Defina %1 e reinicie o Kdenlive."
+
+msgid "Describe the edit you want before sending the request."
+msgstr "Descreva a edição desejada antes de enviar a solicitação."
+
+msgid "The active project has invalid timeline timing information."
+msgstr "O projeto ativo possui informações de tempo inválidas na linha do tempo."
+
+msgid "The transcript contains no usable context for prompt suggestions."
+msgstr "A transcrição não contém nenhum contexto utilizável para sugestões de prompts."
+
+msgid "The AI provider returned an invalid JSON response."
+msgstr "O provedor de IA retornou uma resposta JSON inválida."
+
+msgid "The AI model reached its output token limit before returning an edit plan."
+msgstr "O modelo de IA atingiu seu limite de token de saída antes de retornar um plano de edição."
+
+msgid "The AI provider response did not contain an edit plan."
+msgstr "A resposta do provedor de IA não continha um plano de edição."
+
+msgid "The AI provider returned no edit plan (finish reason: %1)."
+msgstr "O provedor de IA não retornou nenhum plano de edição (motivo final: %1)."
+
+msgid "The AI model reached its output token limit before returning a complete edit plan."
+msgstr "O modelo de IA atingiu seu limite de token de saída antes de retornar um plano de edição completo."
+
+msgid "The AI provider returned an unsafe edit plan: %1"
+msgstr "O provedor de IA retornou um plano de edição inseguro: %1"
+
+msgid "The AI provider did not return valid prompt suggestions."
+msgstr "O provedor de IA não retornou sugestões válidas."
+
+msgid "The AI provider returned an invalid number of prompt suggestions."
+msgstr "O provedor de IA retornou um número inválido de sugestões de prompts."
+
+msgid "The AI provider response did not contain usable prompt suggestions."
+msgstr "A resposta do provedor de IA não continha sugestões de prompt utilizáveis."
+
+msgid "The AI request was cancelled."
+msgstr "A solicitação de IA foi cancelada."
+
+msgid "The AI request timed out. Check the connection and try again."
+msgstr "A solicitação de IA expirou. Verifique a conexão e tente novamente."
+
+msgid "The AI provider returned HTTP %1."
+msgstr "O provedor de IA retornou HTTP %1."
+
+msgid "The AI provider returned HTTP %1: %2"
+msgstr "O provedor de IA retornou HTTP %1: %2"
+
+msgid "The AI request failed because of a network error."
+msgstr "A solicitação de IA falhou devido a um erro de rede."
+
+msgid "The AI provider returned an invalid HTTP response."
+msgstr "O provedor de IA retornou uma resposta HTTP inválida."
+
+msgid "An AI request is already running."
+msgstr "Uma solicitação de IA já está em execução."
+
+msgid "Another provider request is already running."
+msgstr "Outra solicitação de provedor já está em execução."
+
+msgid "Connection successful."
+msgstr "Conexão bem-sucedida."
+
+msgid "Connection test failed (HTTP %1)."
+msgstr "Falha no teste de conexão (HTTP %1)."
+
+msgid "Connection test failed (HTTP %1): %2"
+msgstr "Falha no teste de conexão (HTTP %1): %2"
+
+msgid "Could not create the local AI checkpoint folder."
+msgstr "Não foi possível criar a pasta local de recuperação da IA."
+
+msgid "Could not save the local AI checkpoint."
+msgstr "Não foi possível salvar o ponto de verificação local da IA."
+
+msgid "The AI checkpoint identifier is invalid."
+msgstr "O identificador do ponto de verificação de IA é inválido."
+
+msgid "Provider:"
+msgstr "Provedor:"
+
+msgid "Paste a provider API key"
+msgstr "Cole uma chave de API do provedor"
+
+msgid "API key:"
+msgstr "Chave de API:"
+
+msgid "Save securely"
+msgstr "Salvar com segurança"
+
+msgid "Test connection"
+msgstr "Testar conexão"
+
+msgid "Remove saved key"
+msgstr "Remover chave salva"
+
+msgid "Privacy: media files are never uploaded. Whisper runs locally; only the timestamped transcript is sent. Local resume checkpoints expire after seven days and never contain API keys."
+msgstr "Privacidade: os arquivos de mídia nunca são enviados. O Whisper é executado localmente; somente a transcrição com marcação de tempo é enviada. Os pontos de recuperação locais expiram após sete dias e nunca contêm chaves de API."
+
+msgid "Local AI setup"
+msgstr "Configuração da IA local"
+
+msgid "Prepare / download local model"
+msgstr "Preparar / baixar modelo local"
+
+msgid "Performance"
+msgstr "Desempenho"
+
+msgid "Resource budget:"
+msgstr "Limite de recursos:"
+
+msgid "CPU threads:"
+msgstr "Threads da CPU:"
+
+msgid "Automatic (CPU on this system)"
+msgstr "Automático (CPU neste computador)"
+
+msgid "CPU"
+msgstr "CPU"
+
+msgid "NVIDIA CUDA GPU"
+msgstr "GPU NVIDIA CUDA"
+
+msgid "The detected GPU is not compatible with this Whisper CUDA runtime. CPU processing remains available."
+msgstr "A GPU detectada não é compatível com este tempo de execução Whisper CUDA. O processamento da CPU permanece disponível."
+
+msgid "Processing device:"
+msgstr "Dispositivo de processamento:"
+
+msgid "Custom instruction"
+msgstr "Instrução personalizada"
+
+msgid "Clean work meeting"
+msgstr "Limpar reunião de trabalho"
+
+msgid "Mute off-topic dialogue"
+msgstr "Silenciar conversas fora do assunto"
+
+msgid "Compress silent gaps"
+msgstr "Reduzir intervalos de silêncio"
+
+msgid "Exact-duration speed change"
+msgstr "Acelerar para uma duração exata"
+
+msgid "Ready prompt:"
+msgstr "Prompt pronto:"
+
+msgid "Save prompt"
+msgstr "Salvar prompt"
+
+msgid "Delete prompt"
+msgstr "Excluir prompt"
+
+msgid "Suggest prompts from transcript"
+msgstr "Sugerir prompts pela transcrição"
+
+msgid "Describe the edit:"
+msgstr "Descreva a edição:"
+
+msgid "Example: From 00:10 to 02:10, speed it up so the result lasts exactly 40 seconds."
+msgstr "Exemplo: De 00:10 a 02:10, acelere para que o resultado dure exatamente 40 segundos."
+
+msgid "Analyze timeline audio locally with Whisper"
+msgstr "Analisar o áudio da linha do tempo localmente com o Whisper"
+
+msgid "Needed for requests about dialogue topics or silent gaps. The media stays on this computer."
+msgstr "Necessário para solicitações sobre temas de diálogo ou lacunas silenciosas. A mídia permanece neste computador."
+
+msgid "Generate plan"
+msgstr "Gerar plano"
+
+msgid "Plan preview:"
+msgstr "Prévia do plano:"
+
+msgid "The proposed changes will appear here. Nothing changes until you choose Apply."
+msgstr "As alterações propostas aparecerão aqui. Nada muda até você escolher Aplicar."
+
+msgid "%1 Progress is saved locally. Choose Generate plan to resume."
+msgstr "%1 O progresso é salvo localmente. Escolha Gerar plano para retomar."
+
+msgid "Request cancelled. Completed segments are saved locally; choose Generate plan to resume."
+msgstr "Solicitação cancelada. Os segmentos concluídos são salvos localmente; escolha Gerar plano para retomar."
+
+msgid "Request cancelled."
+msgstr "Solicitação cancelada."
+
+msgid "Error: %1"
+msgstr "Erro: %1"
+
+msgid "Local transcription cancelled."
+msgstr "Transcrição local cancelada."
+
+msgid "Local transcript ready. Requesting the edit plan…"
+msgstr "Transcrição local pronta. Solicitando o plano de edição…"
+
+msgid "Privacy: the transcript and edit request stay on this computer. Ollama listens only on the local loopback address; no API key is required."
+msgstr "Privacidade: a transcrição e a solicitação de edição permanecem neste computador. Ollama escuta apenas no endereço de loopback local; nenhuma chave de API é necessária."
+
+msgid "Connected: key saved securely in %1."
+msgstr "Conectado: chave salva com segurança em %1."
+
+msgid "Connected: key loaded from %1."
+msgstr "Conectado: chave carregada de %1."
+
+msgid "Not connected. Paste a key above and choose Save securely, or set %1."
+msgstr "Não conectado. Cole uma chave acima e escolha Salvar com segurança ou defina %1."
+
+msgid "API key saved securely. It will not be written to the project or logs."
+msgstr "Chave de API salva com segurança. Ela não será gravada no projeto nem nos registros."
+
+msgid "The saved key was removed. An environment-variable key may still be available."
+msgstr "A chave salva foi removida. Uma chave de variável de ambiente ainda pode estar disponível."
+
+msgid "Paste or save an API key before testing the connection."
+msgstr "Cole ou salve uma chave de API antes de testar a conexão."
+
+msgid "Testing the provider connection…"
+msgstr "Testando a conexão do provedor…"
+
+msgid "%1% best-effort budget · %2 of %3 CPU threads · up to %4 GiB memory"
+msgstr "Limite aproximado de %1% · %2 de %3 threads da CPU · até %4 GiB de memória"
+
+msgid "Write a prompt before saving it."
+msgstr "Escreva um prompt antes de salvá-lo."
+
+msgid "Prompt name:"
+msgstr "Nome do prompt:"
+
+msgid "Prompt “%1” saved."
+msgstr "Prompt “%1” salvo."
+
+msgid "Delete the saved prompt “%1”?"
+msgstr "Excluir o prompt salvo “%1”?"
+
+msgid "Prompt “%1” deleted."
+msgstr "Prompt “%1” excluído."
+
+msgid "Choose a model before requesting suggestions."
+msgstr "Escolha um modelo antes de solicitar sugestões."
+
+msgid "The API key is missing. Paste and save a key before requesting suggestions."
+msgstr "A chave da API está faltando. Cole e salve uma chave antes de solicitar sugestões."
+
+msgid "Local AI is not ready. Choose Prepare / download local model first."
+msgstr "A IA local não está pronta. Escolha Preparar/baixar modelo local primeiro."
+
+msgid "Open a project timeline before requesting suggestions."
+msgstr "Abra uma linha do tempo do projeto antes de solicitar sugestões."
+
+msgid "Preparing the transcript to suggest useful prompts…"
+msgstr "Preparando a transcrição para sugerir prompts úteis…"
+
+msgid "The active timeline is no longer available."
+msgstr "A linha do tempo ativa não está mais disponível."
+
+msgid "The transcript contains no usable dialogue for suggestions."
+msgstr "A transcrição não contém nenhum diálogo utilizável para sugestões."
+
+msgid "Consolidating suggestions from the complete transcript"
+msgstr "Consolidando sugestões da transcrição completa"
+
+msgid "Finding useful prompts · transcript segment %1 of %2"
+msgstr "Encontrando prompts úteis · segmento de transcrição %1 de %2"
+
+msgid "Suggestion: %1"
+msgstr "Sugestão: %1"
+
+msgid "The AI did not find useful prompt suggestions."
+msgstr "A IA não encontrou sugestões úteis."
+
+msgid "Suggestions are ready. Select one above, edit it if needed, then choose Save prompt or Generate plan."
+msgstr "As sugestões estão prontas. Selecione uma acima, edite-a se necessário e escolha Salvar prompt ou Gerar plano."
+
+msgid "Open a project timeline before requesting an edit."
+msgstr "Abra uma linha do tempo do projeto antes de solicitar uma edição."
+
+msgid "Saved transcript and analysis found. Skipping local audio preparation and continuing at segment %1."
+msgstr "Transcrição salva e análise encontrada. Ignorando a preparação de áudio local e continuando no segmento %1."
+
+msgid "Waiting for the AI provider"
+msgstr "Esperando pelo provedor de IA"
+
+msgid "The saved transcript contains no usable dialogue."
+msgstr "A transcrição salva não contém nenhum diálogo utilizável."
+
+msgid "Saved analysis transferred to %1. Continuing at segment %2 of %3."
+msgstr "Análise salva transferida para %1. Continuando no segmento %2 de %3."
+
+msgid "Saved analysis restored at segment %1 of %2."
+msgstr "Análise salva restaurada no segmento %1 de %2."
+
+msgid "%1 The transcript was already divided into the smallest safe segments. Choose a model with a larger output limit."
+msgstr "%1 A transcrição já foi dividida nos menores segmentos seguros. Escolha um modelo com um limite de saída maior."
+
+msgid "The model reached its limit. Retrying automatically with %1 smaller segments; the local transcript is being reused."
+msgstr "O modelo atingiu seu limite. Tentando novamente com %1 segmentos menores; a transcrição local será reutilizada."
+
+msgid "Requesting AI segment %1 of %2. Each completed segment is saved locally."
+msgstr "Solicitando o segmento de IA %1 de %2. Cada segmento concluído é salvo localmente."
+
+msgid "Analyzing transcript with AI · segment %1 of %2"
+msgstr "Analisando a transcrição com IA · segmento %1 de %2"
+
+msgid "The AI segment was invalid: %1 Progress remains saved."
+msgstr "O segmento da IA é inválido: %1 O progresso permanece salvo."
+
+msgid "The combined AI plan is unsafe: %1 Progress remains saved."
+msgstr "O plano combinado de IA não é seguro: %1 O progresso permanece salvo."
+
+msgid "Analysis completed. No matching edits were found in the transcript."
+msgstr "Análise concluída. Nenhuma edição correspondente foi encontrada na transcrição."
+
+msgid "No proposed operation can be applied safely to this timeline. First reason: %1"
+msgstr "Nenhuma operação proposta pode ser aplicada com segurança a esta linha do tempo. Primeiro motivo: %1"
+
+msgid "Plan validated with %1 safe operations. %2 incompatible operations were skipped. First reason: %3"
+msgstr "Plano validado com %1 operações seguras. %2 operações incompatíveis foram ignoradas. Primeiro motivo: %3"
+
+msgid "Plan validated. Review it, then choose Apply."
+msgstr "Plano validado. Revise-o e escolha Aplicar."
+
+msgid "There is no valid plan to apply to the active timeline."
+msgstr "Não há um plano válido para aplicar à linha do tempo ativa."
+
+msgid "Applying AI edit plan"
+msgstr "Aplicando o plano de edição da IA"
+
+msgid "Applying timeline edits · %1 of %2"
+msgstr "Aplicando edições na linha do tempo · %1 de %2"
+
+msgid "Edit applied. Use Undo once to restore the previous timeline."
+msgstr "Edição aplicada. Use Desfazer uma vez para restaurar a linha do tempo anterior."
+
+msgid "Waiting for the AI provider…"
+msgstr "Esperando pelo provedor de IA…"
+
+msgid " · approximately %1 remaining"
+msgstr " · aproximadamente %1 restante"
+
+msgid "Operation field '%1' must be an integer."
+msgstr "O campo de operação '%1' deve ser um número inteiro."
+
+msgid "Operation field '%1' is outside the supported frame range."
+msgstr "O campo de operação '%1' está fora do intervalo de quadros suportado."
+
+msgid "Operation field 'end_frame' must be greater than 'start_frame'."
+msgstr "O campo de operação 'end_frame' deve ser maior que 'start_frame'."
+
+msgid "Operation field 'preserve_pitch' must be a boolean."
+msgstr "O campo de operação 'preserve_pitch' deve ser booleano."
+
+msgid "The edit plan is empty."
+msgstr "O plano de edição está vazio."
+
+msgid "The edit plan exceeds the 256 KiB size limit."
+msgstr "O plano de edição excede o limite de tamanho de 256 KiB."
+
+msgid "Invalid edit plan JSON at byte %1: %2"
+msgstr "Plano de edição JSON inválido no byte %1: %2"
+
+msgid "The edit plan root must be an object."
+msgstr "A raiz do plano de edição deve ser um objeto."
+
+msgid "Unsupported or missing edit plan version; expected version 1."
+msgstr "Versão do plano de edição incompatível ou ausente; versão esperada 1."
+
+msgid "Edit plan field 'operations' must be an array."
+msgstr "O campo 'operations' do plano de edição deve ser uma lista."
+
+msgid "Edit plan must contain at most 4096 operations."
+msgstr "O plano de edição deve conter no máximo 4.096 operações."
+
+msgid "Edit plan must contain between 1 and 4096 operations."
+msgstr "O plano de edição deve conter entre 1 e 4.096 operações."
+
+msgid "Operation %1 must be an object."
+msgstr "A operação %1 deve ser um objeto."
+
+msgid "Operation %1 has an unsupported or missing type."
+msgstr "A operação %1 tem um tipo incompatível ou ausente."
+
+msgid "Operation %1 is invalid: %2"
+msgstr "A operação %1 é inválida: %2"
+
+msgid "Edit plan operations must not overlap."
+msgstr "As operações de edição do plano não devem se sobrepor."
+
+msgid "An edit operation extends beyond the active timeline."
+msgstr "Uma operação de edição se estende além da linha do tempo ativa."
+
+msgid "Making a range longer is not supported yet."
+msgstr "Aumentar um intervalo ainda não é suportado."
+
+msgid "No valid edit plan is available."
+msgstr "Nenhum plano de edição válido está disponível."
+
+msgid "No active timeline is available."
+msgstr "Nenhuma linha do tempo ativa está disponível."
+
+msgid "AI: Apply edit plan"
+msgid_plural "AI: Apply edit plan (%1 operations)"
+msgstr[0] "IA: Aplicar plano de edição"
+msgstr[1] "IA: Aplicar plano de edição (%1 operações)"
+
+msgid "Display adapter not reported"
+msgstr "Adaptador de vídeo não informado"
+
+msgid "Ollama installation did not complete. Install it from ollama.com/download/windows, then choose Check again."
+msgstr "A instalação do Ollama não foi concluída. Instale-o em ollama.com/download/windows e escolha Verificar novamente."
+
+msgid "Ollama installed. Starting the local service…"
+msgstr "Ollama instalado. Iniciando o serviço local…"
+
+msgid "%1 was selected to fit approximately %2 GiB of dedicated GPU memory while leaving room for processing."
+msgstr "%1 foi selecionado para acomodar aproximadamente %2 GiB de memória GPU dedicada, deixando espaço para processamento."
+
+msgid "%1 was selected from the available CPU threads and system memory. A smaller model will be faster."
+msgstr "%1 foi selecionado entre os threads de CPU e memória do sistema disponíveis. Um modelo menor será mais rápido."
+
+msgid "Detected: %1 CPU threads · %2 GiB memory · %3"
+msgstr "Detectado: %1 threads da CPU · %2 GiB de memória · %3"
+
+msgid " · %1 GiB GPU memory"
+msgstr " · %1 GiB de memória da GPU"
+
+msgid "Ollama is not installed. The recommended local model is %1."
+msgstr "Ollama não está instalado. O modelo local recomendado é %1."
+
+msgid "Windows Package Manager was not found. Install Ollama from ollama.com/download/windows, then choose Check again."
+msgstr "O Gerenciador de Pacotes do Windows não foi encontrado. Instale o Ollama em ollama.com/download/windows e escolha Verificar novamente."
+
+msgid "Installing Ollama locally"
+msgstr "Instalando o Ollama localmente"
+
+msgid "Installing Ollama. No project media is involved…"
+msgstr "Instalando Ollama. Nenhuma mídia do projeto está envolvida…"
+
+msgid "Ollama installation could not be started: %1"
+msgstr "A instalação do Ollama não pôde ser iniciada: %1"
+
+msgid "Local AI setup cancelled."
+msgstr "Configuração de IA local cancelada."
+
+msgid "Ollama is running, but model %1 is not downloaded. Choose Prepare / download local model."
+msgstr "Ollama está em execução, mas o modelo %1 não foi baixado. Escolha Preparar/baixar modelo local."
+
+msgid "Local Ollama service is ready."
+msgstr "O serviço local Ollama está pronto."
+
+msgid "Local model %1 is ready."
+msgstr "O modelo local %1 está pronto."
+
+msgid "Ollama is not installed."
+msgstr "Ollama não está instalado."
+
+msgid "Ollama is installed, but its local service is not responding. Choose Prepare local AI."
+msgstr "Ollama está instalado, mas seu serviço local não está respondendo. Escolha Preparar IA local."
+
+msgid "Downloading local model %1"
+msgstr "Baixando o modelo local %1"
+
+msgid "Downloading %1 (approximately %2). You can cancel and resume later."
+msgstr "Baixando %1 (aproximadamente %2). Você pode cancelar e retomar mais tarde."
+
+msgid "Unknown network error"
+msgstr "Erro de rede desconhecido"
+
+msgid "The local model download stopped: %1. Choose Prepare local AI to resume."
+msgstr "O download do modelo local foi interrompido: %1. Escolha Preparar IA local para retomar."
+
+msgid "Local model ready"
+msgstr "Modelo local pronto"
+
+msgid "Local model %1 is ready and will work without an API key."
+msgstr "O modelo local %1 está pronto e funcionará sem uma chave API."
+
+msgid "A local transcription is already running."
+msgstr "Uma transcrição local já está em execução."
+
+msgid "Local speech recognition is not ready. Open Settings > Configure Kdenlive > Plugins, install Whisper and a model, then try again."
+msgstr "O reconhecimento de fala local não está pronto. Abra Configurações > Configurar Kdenlive > Plugins, instale o Whisper e um modelo e tente novamente."
+
+msgid "Using the installed Whisper model “%1” automatically."
+msgstr "Usando o modelo Whisper instalado “%1” automaticamente."
+
+msgid "Could not create temporary files for local transcription."
+msgstr "Não foi possível criar arquivos temporários para transcrição local."
+
+msgid "Preparing the current timeline audio locally…"
+msgstr "Preparando o áudio da linha do tempo atual localmente…"
+
+msgid "The current timeline audio could not be prepared for transcription."
+msgstr "Não foi possível preparar o áudio da linha do tempo atual para transcrição."
+
+msgid "The current timeline description could not be read for a safe checkpoint."
+msgstr "Não foi possível ler a descrição da linha do tempo atual para um ponto de verificação seguro."
+
+msgid "Saved local transcript restored. Continuing without running Whisper again…"
+msgstr "Transcrição local salva restaurada. Continuando sem executar o Whisper novamente…"
+
+msgid "Preparing timeline audio"
+msgstr "Preparando o áudio da linha do tempo"
+
+msgid "Timeline audio export could not be started: %1"
+msgstr "Não foi possível iniciar a exportação de áudio da linha do tempo: %1"
+
+msgid "Transcribing locally with Whisper. This may take several minutes…"
+msgstr "Transcrevendo localmente com o Whisper. Isso pode levar vários minutos…"
+
+msgid "Transcribing locally with Whisper"
+msgstr "Transcrevendo localmente com o Whisper"
+
+msgid "Whisper could not be started: %1"
+msgstr "O Whisper não pôde ser iniciado: %1"
+
+msgid "Timeline audio export failed: %1"
+msgstr "Falha na exportação de áudio da linha do tempo: %1"
+
+msgid "Local Whisper transcription failed: %1"
+msgstr "Falha na transcrição do Whisper local: %1"
+
+msgid "Timeline audio export produced no usable audio."
+msgstr "A exportação de áudio da linha do tempo não produziu áudio utilizável."
+
+msgid "Whisper finished without producing a readable transcript."
+msgstr "Whisper terminou sem produzir uma transcrição legível."
+
+msgid "No dialogue was detected in the current timeline."
+msgstr "Nenhum diálogo foi detectado na linha do tempo atual."
+
+msgid "The mute range is outside the active timeline."
+msgstr "A faixa de mudo está fora da linha do tempo ativa."
+
+msgid "A locked track contains content in the mute range."
+msgstr "Uma faixa bloqueada contém conteúdo na faixa sem som."
+
+msgid "The mute range contains an unsupported timeline item."
+msgstr "O intervalo mudo contém um item de linha do tempo não compatível."
+
+msgid "The mute range must be covered by one continuous clip on each affected track."
+msgstr "A faixa de mudo deve ser coberta por um clipe contínuo em cada trilha afetada."
+
+msgid "No clip covers the mute range."
+msgstr "Nenhum clipe cobre a faixa de mudo."
+
+msgid "All clips covering the mute range must belong to the same aligned group."
+msgstr "Todos os clipes que cobrem a faixa sem som devem pertencer ao mesmo grupo alinhado."
+
+msgid "No audio clip covers the mute range."
+msgstr "Nenhum clipe de áudio cobre a faixa de mudo."
+
+msgid "Could not cut the clips at the mute range start."
+msgstr "Não foi possível cortar os clipes no início do intervalo mudo."
+
+msgid "The mute range start did not produce an exact clip boundary."
+msgstr "O início do intervalo mudo não produziu um limite de clipe exato."
+
+msgid "Could not cut the clips at the mute range end."
+msgstr "Não foi possível cortar os clipes no final da faixa de mudo."
+
+msgid "The mute range did not isolate an aligned clip group."
+msgstr "A faixa de mudo não isolou um grupo de clipes alinhados."
+
+msgid "Kdenlive could not mute every audio clip in the range."
+msgstr "O Kdenlive não conseguiu silenciar todos os clipes de áudio do intervalo."
+
+msgid "The retime range is invalid."
+msgstr "O intervalo de aceleração é inválido."
+
+msgid "The range cannot be retimed while subtitles exist at or after its start."
+msgstr "O intervalo não pode ser acelerado enquanto houver legendas no seu início ou depois dele."
+
+msgid "A locked track contains content that would be affected by the retime."
+msgstr "Uma trilha bloqueada contém conteúdo que seria afetado pela aceleração."
+
+msgid "Compositions at or after the range start are not supported yet."
+msgstr "As composições no início do intervalo ou após ele ainda não são suportadas."
+
+msgid "The selected range contains an unsupported timeline item."
+msgstr "O intervalo selecionado contém um item de linha do tempo não compatível."
+
+msgid "The selected range must be covered by one continuous clip on each affected track."
+msgstr "O intervalo selecionado deve ser coberto por um clipe contínuo em cada trilha afetada."
+
+msgid "Clips participating in a same-track mix cannot be retimed yet."
+msgstr "Os clipes que participam de uma mixagem na mesma trilha ainda não podem ser acelerados."
+
+msgid "No clip covers the selected range."
+msgstr "Nenhum clipe cobre o intervalo selecionado."
+
+msgid "All clips covering the range must belong to the same aligned group."
+msgstr "Todos os clipes que cobrem o intervalo devem pertencer ao mesmo grupo alinhado."
+
+msgid "The clip at the range start could not be resolved."
+msgstr "O clipe no início do intervalo não pôde ser resolvido."
+
+msgid "Could not cut the clips at the range start."
+msgstr "Não foi possível cortar os clipes no início do intervalo."
+
+msgid "The range start did not produce an exact clip boundary."
+msgstr "O início do intervalo não produziu um limite de corte exato."
+
+msgid "Could not cut the clips at the range end."
+msgstr "Não foi possível cortar os clipes no final do intervalo."
+
+msgid "The isolated range could not be resolved."
+msgstr "O intervalo isolado não pôde ser resolvido."
+
+msgid "The range did not isolate an aligned clip group."
+msgstr "O intervalo não isolou um grupo de clipes alinhados."
+
+msgid "Kdenlive could not apply the requested speed to every clip."
+msgstr "O Kdenlive não conseguiu aplicar a velocidade solicitada a todos os clipes."
+
+msgid "The requested duration cannot be represented exactly in this project."
+msgstr "A duração solicitada não pode ser representada exatamente neste projeto."
+
+msgid "The timeline could not close the space left by the retime."
+msgstr "A linha do tempo não conseguiu fechar o espaço deixado pela aceleração."
+
+msgid "AI: Retime range"
+msgstr "IA: Acelerar intervalo"
+
+msgid "Windows could not read the saved credential (error %1)."
+msgstr "O Windows não conseguiu ler a credencial salva (erro %1)."
+
+msgid "Enter a valid API key no longer than 2048 bytes."
+msgstr "Insira uma chave de API válida com no máximo 2.048 bytes."
+
+msgid "Windows could not save the credential (error %1)."
+msgstr "O Windows não conseguiu salvar a credencial (erro %1)."
+
+msgid "Secure in-app credential storage is not available on this platform; use the provider environment variable."
+msgstr "O armazenamento seguro de credenciais no aplicativo não está disponível nesta plataforma; use a variável de ambiente do provedor."
+
+msgid "Windows could not remove the credential (error %1)."
+msgstr "O Windows não conseguiu remover a credencial (erro %1)."
+
+msgid "There is no saved in-app credential on this platform."
+msgstr "Não há credencial salva no aplicativo nesta plataforma."
+
+msgid "The API key was rejected. Check or replace the saved key."
+msgstr "A chave de API foi recusada. Verifique ou substitua a chave salva."
+
+msgid "The provider requires credits for this request. Add credits or choose a free or local model."
+msgstr "O provedor exige créditos para esta solicitação. Adicione créditos ou escolha um modelo gratuito ou local."
+
+msgid "The provider denied this request. Check the key permissions and selected model."
+msgstr "O provedor negou esta solicitação. Verifique as permissões da chave e o modelo selecionado."
+
+msgid "The selected AI model was not found or is no longer available."
+msgstr "O modelo de IA selecionado não foi encontrado ou não está mais disponível."
+
+msgid "The provider request limit was reached. Wait before retrying, choose another model, or use Local AI."
+msgstr "O limite de solicitações do provedor foi atingido. Aguarde antes de tentar novamente, escolha outro modelo ou use a IA local."
+
+msgid "The AI provider is temporarily unavailable (HTTP %1). Try again later or use Local AI."
+msgstr "O provedor de IA está temporariamente indisponível (HTTP %1). Tente novamente mais tarde ou use a IA local."
+
+msgid "%1\nRecommended model: %2 (approximately %3 download).\n%4"
+msgstr "%1\nModelo recomendado: %2 (download de aproximadamente %3).\n%4"
+
+msgid "%1. Speed up range\n   %2 to %3 · %4 → %5 · %6x · preserve pitch: %7"
+msgstr "%1. Acelerar intervalo\n   %2 a %3 · %4 → %5 · %6x · preservar tom: %7"
+
+msgid "%1. Mute audio\n   %2 to %3 · duration %4"
+msgstr "%1. Silenciar áudio\n   %2 a %3 · duração %4"

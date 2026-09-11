@@ -5,6 +5,7 @@
 
 #include "aisessionstore.hpp"
 
+#include <KLocalizedString>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -52,14 +53,14 @@ bool writeAtomically(const QString &path, const QByteArray &data, QString *error
 {
     if (!QDir().mkpath(QFileInfo(path).absolutePath())) {
         if (error) {
-            *error = QStringLiteral("Could not create the local AI checkpoint folder.");
+            *error = i18n("Could not create the local AI checkpoint folder.");
         }
         return false;
     }
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
         if (error) {
-            *error = QStringLiteral("Could not save the local AI checkpoint.");
+            *error = i18n("Could not save the local AI checkpoint.");
         }
         return false;
     }
@@ -229,7 +230,7 @@ bool AiSessionStore::save(const AiSessionCheckpoint &checkpoint, QString *error)
     pruneExpiredFiles();
     if (safeFileId(checkpoint.id).isEmpty()) {
         if (error) {
-            *error = QStringLiteral("The AI checkpoint identifier is invalid.");
+            *error = i18n("The AI checkpoint identifier is invalid.");
         }
         return false;
     }
@@ -257,8 +258,8 @@ std::optional<AiSessionCheckpoint> AiSessionStore::load(const QString &id)
     return checkpoint;
 }
 
-std::optional<AiSessionCheckpoint> AiSessionStore::loadMostAdvancedCompatible(const QString &timelineFingerprint, const QString &prompt,
-                                                                               int timelineFrames, double fps, const QString &transcript)
+std::optional<AiSessionCheckpoint> AiSessionStore::loadMostAdvancedCompatible(const QString &timelineFingerprint, const QString &prompt, int timelineFrames,
+                                                                              double fps, const QString &transcript)
 {
     pruneExpiredFiles();
     if (safeFileId(timelineFingerprint).isEmpty() || prompt.trimmed().isEmpty() || timelineFrames < 1 || fps <= 0.0 || transcript.isEmpty()) {

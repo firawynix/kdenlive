@@ -22,6 +22,7 @@
 #include <QTimer>
 
 #ifdef Q_OS_WIN
+#include <dxgi.h>
 #include <qt_windows.h>
 #endif
 
@@ -31,20 +32,46 @@ namespace AiEditor {
 namespace {
 constexpr quint64 GiB = 1024ULL * 1024ULL * 1024ULL;
 
-QString displayAdapterName()
+struct DisplayAdapterInfo
+{
+    QString name;
+    quint64 dedicatedMemoryBytes{0};
+};
+
+DisplayAdapterInfo displayAdapterInfo()
 {
 #ifdef Q_OS_WIN
+    IDXGIFactory1 *factory = nullptr;
+    if (SUCCEEDED(CreateDXGIFactory1(IID_IDXGIFactory1, reinterpret_cast<void **>(&factory)))) {
+        DisplayAdapterInfo best;
+        IDXGIAdapter1 *adapter = nullptr;
+        for (UINT index = 0; factory->EnumAdapters1(index, &adapter) != DXGI_ERROR_NOT_FOUND; ++index) {
+            DXGI_ADAPTER_DESC1 description{};
+            if (SUCCEEDED(adapter->GetDesc1(&description)) && (description.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
+                description.DedicatedVideoMemory >= best.dedicatedMemoryBytes) {
+                best.name = QString::fromWCharArray(description.Description);
+                best.dedicatedMemoryBytes = description.DedicatedVideoMemory;
+            }
+            adapter->Release();
+            adapter = nullptr;
+        }
+        factory->Release();
+        if (!best.name.isEmpty()) {
+            return best;
+        }
+    }
+
     DISPLAY_DEVICEW device{};
     device.cb = sizeof(device);
     for (DWORD index = 0; EnumDisplayDevicesW(nullptr, index, &device, 0); ++index) {
         if ((device.StateFlags & DISPLAY_DEVICE_MIRRORING_DRIVER) == 0 && (device.StateFlags & DISPLAY_DEVICE_ACTIVE) != 0) {
-            return QString::fromWCharArray(device.DeviceString);
+            return {QString::fromWCharArray(device.DeviceString), 0};
         }
         device = {};
         device.cb = sizeof(device);
     }
 #endif
-    return i18n("Display adapter not reported");
+    return {i18n("Display adapter not reported"), 0};
 }
 } // namespace
 
@@ -78,7 +105,8 @@ LocalAiManager::LocalAiManager(QObject *parent)
 
 LocalAiHardware LocalAiManager::detectHardware()
 {
-    return {ResourceBudget::logicalCpuCount(), ResourceBudget::totalMemoryBytes(), displayAdapterName()};
+    const DisplayAdapterInfo adapter = displayAdapterInfo();
+    return {ResourceBudget::logicalCpuCount(), ResourceBudget::totalMemoryBytes(), adapter.name, adapter.dedicatedMemoryBytes};
 }
 
 QString LocalAiManager::recommendedModelForMemory(quint64 memoryBytes)
@@ -102,9 +130,24 @@ QString LocalAiManager::recommendedModelForHardware(const LocalAiHardware &hardw
                                      hardware.displayAdapter.contains(QLatin1String("NVIDIA RTX"), Qt::CaseInsensitive) ||
                                      hardware.displayAdapter.contains(QLatin1String("Intel Arc"), Qt::CaseInsensitive);
     if (dedicatedDesktopGpu) {
-        return hardware.memoryBytes >= 12 * GiB ? QStringLiteral("qwen3:8b") : QStringLiteral("qwen3:4b");
+        if (hardware.videoMemoryBytes >= 24 * GiB) {
+            return QStringLiteral("qwen3:30b");
+        }
+        if (hardware.videoMemoryBytes >= 12 * GiB) {
+            return QStringLiteral("qwen3:14b");
+        }
+        if (hardware.videoMemoryBytes >= 6 * GiB || hardware.videoMemoryBytes == 0) {
+            return hardware.memoryBytes >= 12 * GiB ? QStringLiteral("qwen3:8b") : QStringLiteral("qwen3:4b");
+        }
+        return QStringLiteral("qwen3:4b");
     }
-    return recommendedModelForMemory(hardware.memoryBytes);
+    if (hardware.cpuThreads >= 16 && hardware.memoryBytes >= 48 * GiB) {
+        return QStringLiteral("qwen3:14b");
+    }
+    if (hardware.cpuThreads >= 8 && hardware.memoryBytes >= 16 * GiB) {
+        return QStringLiteral("qwen3:8b");
+    }
+    return QStringLiteral("qwen3:4b");
 }
 
 QString LocalAiManager::approximateDownloadSize(const QString &model)
@@ -119,6 +162,15 @@ QString LocalAiManager::approximateDownloadSize(const QString &model)
         return QStringLiteral("5.2 GB");
     }
     return QStringLiteral("2.5 GB");
+}
+
+QString LocalAiManager::recommendationReason(const LocalAiHardware &hardware, const QString &model)
+{
+    if (hardware.videoMemoryBytes > 0) {
+        return i18n("%1 was selected to fit approximately %2 GiB of dedicated GPU memory while leaving room for processing.", model,
+                    QString::number(double(hardware.videoMemoryBytes) / double(GiB), 'f', 1));
+    }
+    return i18n("%1 was selected from the available CPU threads and system memory. A smaller model will be faster.", model);
 }
 
 QString LocalAiManager::ollamaExecutable()
@@ -157,10 +209,20 @@ QString LocalAiManager::recommendedModel() const
     return recommendedModelForHardware(m_hardware);
 }
 
+QString LocalAiManager::recommendationReason() const
+{
+    return recommendationReason(m_hardware, recommendedModel());
+}
+
 QString LocalAiManager::hardwareSummary() const
 {
     const double memoryGiB = double(m_hardware.memoryBytes) / double(GiB);
-    return i18n("Detected: %1 CPU threads · %2 GiB memory · %3", m_hardware.cpuThreads, QString::number(memoryGiB, 'f', 1), m_hardware.displayAdapter);
+    QString summary =
+        i18n("Detected: %1 CPU threads · %2 GiB memory · %3", m_hardware.cpuThreads, QString::number(memoryGiB, 'f', 1), m_hardware.displayAdapter);
+    if (m_hardware.videoMemoryBytes > 0) {
+        summary += i18n(" · %1 GiB GPU memory", QString::number(double(m_hardware.videoMemoryBytes) / double(GiB), 'f', 1));
+    }
+    return summary;
 }
 
 void LocalAiManager::refresh(const QString &model)

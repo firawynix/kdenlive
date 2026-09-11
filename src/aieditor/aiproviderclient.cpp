@@ -5,11 +5,13 @@
 
 #include "aiproviderclient.hpp"
 
+#include <KLocalizedString>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QSet>
 #include <algorithm>
 #include <utility>
 
@@ -57,6 +59,114 @@ QJsonObject editPlanSchema(bool allowEmptyPlan)
         {QStringLiteral("required"), QJsonArray{QStringLiteral("version"), QStringLiteral("operations")}}};
 }
 
+QJsonObject promptSuggestionSchema()
+{
+    const QJsonObject suggestion{
+        {QStringLiteral("type"), QStringLiteral("object")},
+        {QStringLiteral("additionalProperties"), false},
+        {QStringLiteral("properties"),
+         QJsonObject{{QStringLiteral("title"),
+                      QJsonObject{{QStringLiteral("type"), QStringLiteral("string")}, {QStringLiteral("minLength"), 1}, {QStringLiteral("maxLength"), 80}}},
+                     {QStringLiteral("prompt"),
+                      QJsonObject{{QStringLiteral("type"), QStringLiteral("string")}, {QStringLiteral("minLength"), 1}, {QStringLiteral("maxLength"), 1200}}}}},
+        {QStringLiteral("required"), QJsonArray{QStringLiteral("title"), QStringLiteral("prompt")}}};
+    return QJsonObject{{QStringLiteral("type"), QStringLiteral("object")},
+                       {QStringLiteral("additionalProperties"), false},
+                       {QStringLiteral("properties"), QJsonObject{{QStringLiteral("suggestions"), QJsonObject{{QStringLiteral("type"), QStringLiteral("array")},
+                                                                                                              {QStringLiteral("minItems"), 1},
+                                                                                                              {QStringLiteral("maxItems"), 6},
+                                                                                                              {QStringLiteral("items"), suggestion}}}}},
+                       {QStringLiteral("required"), QJsonArray{QStringLiteral("suggestions")}}};
+}
+
+QString promptSuggestionSystemPrompt(bool consolidate)
+{
+    if (consolidate) {
+        return QStringLiteral(
+            "Consolidate candidate Kdenlive editing prompts that were proposed from every part of a transcript. Return 3 to 6 distinct, practical prompts "
+            "in Brazilian Portuguese. Prefer the recording's dominant topics and combine duplicates. Prompts may ask to mute off-topic dialogue or compress "
+            "silent gaps. Do not claim to detect frozen video, missing screen sharing, or visual content because only speech timestamps were analyzed. Output "
+            "only the requested JSON schema.");
+    }
+    return QStringLiteral(
+        "Analyze this timestamped transcript excerpt and propose practical Kdenlive editing prompts. Return 2 to 5 concise suggestions in Brazilian "
+        "Portuguese. Identify dominant subjects, off-topic conversations, and useful rules for compressing silent gaps. Each prompt must be an actionable "
+        "instruction using only dialogue topics and silence timestamps. Do not claim to detect frozen video, missing screen sharing, or visual content because "
+        "no video frames were provided. Output only the requested JSON schema.");
+}
+
+QString promptSuggestionUserMessage(const QString &context, bool consolidate)
+{
+    return consolidate ? QStringLiteral("Candidate prompts collected from all transcript segments:\n%1").arg(context)
+                       : QStringLiteral("Timestamped local transcript excerpt (media was not uploaded):\n%1").arg(context);
+}
+
+BuiltAiRequest buildStructuredRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &system, const QString &user,
+                                      const QJsonObject &schema, const QString &schemaName)
+{
+    BuiltAiRequest result;
+    result.headers.push_back({QByteArrayLiteral("Content-Type"), QByteArrayLiteral("application/json")});
+    const QJsonArray messages{
+        QJsonObject{{QStringLiteral("role"), QStringLiteral("system")}, {QStringLiteral("content"), system}},
+        QJsonObject{{QStringLiteral("role"), QStringLiteral("user")}, {QStringLiteral("content"), user}},
+    };
+    QJsonObject body;
+    body.insert(QStringLiteral("model"), model.trimmed());
+    if (provider == AiProvider::Ollama) {
+        result.url = QUrl(QStringLiteral("http://127.0.0.1:11434/api/chat"));
+        body.insert(QStringLiteral("messages"), messages);
+        body.insert(QStringLiteral("stream"), false);
+        body.insert(QStringLiteral("think"), false);
+        body.insert(QStringLiteral("format"), schema);
+        body.insert(QStringLiteral("options"), QJsonObject{{QStringLiteral("temperature"), 0}, {QStringLiteral("num_predict"), 16384}});
+    } else if (provider == AiProvider::Anthropic) {
+        result.url = QUrl(QStringLiteral("https://api.anthropic.com/v1/messages"));
+        result.headers.push_back({QByteArrayLiteral("x-api-key"), apiKey});
+        result.headers.push_back({QByteArrayLiteral("anthropic-version"), QByteArrayLiteral("2023-06-01")});
+        body.insert(QStringLiteral("max_tokens"), 16384);
+        body.insert(QStringLiteral("system"), system);
+        body.insert(QStringLiteral("messages"), QJsonArray{messages.at(1)});
+        body.insert(QStringLiteral("output_config"), QJsonObject{{QStringLiteral("format"), QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")},
+                                                                                                        {QStringLiteral("schema"), schema}}}});
+    } else {
+        result.url = provider == AiProvider::OpenRouter ? QUrl(QStringLiteral("https://openrouter.ai/api/v1/chat/completions"))
+                                                        : QUrl(QStringLiteral("https://api.openai.com/v1/chat/completions"));
+        result.headers.push_back({QByteArrayLiteral("Authorization"), QByteArrayLiteral("Bearer ") + apiKey});
+        if (provider == AiProvider::OpenRouter) {
+            body.insert(QStringLiteral("max_tokens"), 16384);
+            body.insert(QStringLiteral("provider"), QJsonObject{{QStringLiteral("require_parameters"), true}});
+        } else {
+            body.insert(QStringLiteral("max_completion_tokens"), 16384);
+        }
+        body.insert(QStringLiteral("messages"), messages);
+        body.insert(QStringLiteral("response_format"),
+                    QJsonObject{{QStringLiteral("type"), QStringLiteral("json_schema")},
+                                {QStringLiteral("json_schema"),
+                                 QJsonObject{{QStringLiteral("name"), schemaName}, {QStringLiteral("strict"), true}, {QStringLiteral("schema"), schema}}}});
+    }
+    result.body = QJsonDocument(body).toJson(QJsonDocument::Compact);
+    return result;
+}
+
+QString responseContent(AiProvider provider, const QJsonObject &root)
+{
+    if (provider == AiProvider::Ollama) {
+        return root.value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
+    }
+    if (provider == AiProvider::Anthropic) {
+        const QJsonArray blocks = root.value(QStringLiteral("content")).toArray();
+        for (const QJsonValue &blockValue : blocks) {
+            const QJsonObject block = blockValue.toObject();
+            if (block.value(QStringLiteral("type")).toString() == QLatin1String("text")) {
+                return block.value(QStringLiteral("text")).toString();
+            }
+        }
+        return {};
+    }
+    const QJsonArray choices = root.value(QStringLiteral("choices")).toArray();
+    return choices.isEmpty() ? QString() : choices.at(0).toObject().value(QStringLiteral("message")).toObject().value(QStringLiteral("content")).toString();
+}
+
 QString systemPrompt()
 {
     return QStringLiteral(
@@ -99,6 +209,28 @@ QByteArray extractApiError(const QByteArray &payload)
         return error.toString().toUtf8();
     }
     return {};
+}
+
+QString providerHttpError(int status, const QByteArray &apiMessage = {})
+{
+    switch (status) {
+    case 401:
+        return i18n("The API key was rejected. Check or replace the saved key.");
+    case 402:
+        return i18n("The provider requires credits for this request. Add credits or choose a free or local model.");
+    case 403:
+        return i18n("The provider denied this request. Check the key permissions and selected model.");
+    case 404:
+        return i18n("The selected AI model was not found or is no longer available.");
+    case 429:
+        return i18n("The provider request limit was reached. Wait before retrying, choose another model, or use Local AI.");
+    default:
+        if (status >= 500) {
+            return i18n("The AI provider is temporarily unavailable (HTTP %1). Try again later or use Local AI.", status);
+        }
+        return apiMessage.isEmpty() ? i18n("The AI provider returned HTTP %1.", status)
+                                    : i18n("The AI provider returned HTTP %1: %2", status, QString::fromUtf8(apiMessage));
+    }
 }
 
 QByteArray normalizeLocalPlanImpl(const QByteArray &planJson)
@@ -204,6 +336,11 @@ bool AiProviderResponse::isValid() const
     return error.isEmpty() && !cancelled;
 }
 
+bool PromptSuggestionResponse::isValid() const
+{
+    return error.isEmpty() && !suggestions.isEmpty();
+}
+
 AiProviderClient::AiProviderClient(QObject *parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
@@ -263,7 +400,7 @@ BuiltAiRequest AiProviderClient::buildConnectionTestRequest(AiProvider provider,
         return result;
     }
     if (apiKey.trimmed().isEmpty()) {
-        result.error = QStringLiteral("The API key is missing.");
+        result.error = i18n("The API key is missing.");
         return result;
     }
     if (provider == AiProvider::OpenRouter) {
@@ -285,19 +422,19 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
 {
     BuiltAiRequest result;
     if (model.trimmed().isEmpty()) {
-        result.error = QStringLiteral("Choose a model before sending the request.");
+        result.error = i18n("Choose a model before sending the request.");
         return result;
     }
     if (provider != AiProvider::Ollama && apiKey.trimmed().isEmpty()) {
-        result.error = QStringLiteral("The API key is missing. Set %1 and restart Kdenlive.").arg(environmentVariable(provider));
+        result.error = i18n("The API key is missing. Set %1 and restart Kdenlive.", environmentVariable(provider));
         return result;
     }
     if (prompt.trimmed().isEmpty()) {
-        result.error = QStringLiteral("Describe the edit you want before sending the request.");
+        result.error = i18n("Describe the edit you want before sending the request.");
         return result;
     }
     if (timelineFrames < 1 || fps <= 0.0) {
-        result.error = QStringLiteral("The active project has invalid timeline timing information.");
+        result.error = i18n("The active project has invalid timeline timing information.");
         return result;
     }
 
@@ -348,13 +485,34 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
     return result;
 }
 
+BuiltAiRequest AiProviderClient::buildPromptSuggestionRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &context,
+                                                              bool consolidate)
+{
+    BuiltAiRequest result;
+    if (model.trimmed().isEmpty()) {
+        result.error = i18n("Choose a model before sending the request.");
+        return result;
+    }
+    if (provider != AiProvider::Ollama && apiKey.trimmed().isEmpty()) {
+        result.error = i18n("The API key is missing. Set %1 and restart Kdenlive.", environmentVariable(provider));
+        return result;
+    }
+    if (context.trimmed().isEmpty()) {
+        result.error = i18n("The transcript contains no usable context for prompt suggestions.");
+        return result;
+    }
+    return buildStructuredRequest(provider, model, apiKey, promptSuggestionSystemPrompt(consolidate),
+                                  promptSuggestionUserMessage(context.trimmed(), consolidate), promptSuggestionSchema(),
+                                  QStringLiteral("kdenlive_prompt_suggestions"));
+}
+
 AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider, const QByteArray &payload, bool allowEmptyPlan)
 {
     AiProviderResponse result;
     QJsonParseError jsonError;
     const QJsonDocument document = QJsonDocument::fromJson(payload, &jsonError);
     if (jsonError.error != QJsonParseError::NoError || !document.isObject()) {
-        result.error = QStringLiteral("The AI provider returned an invalid JSON response.");
+        result.error = i18n("The AI provider returned an invalid JSON response.");
         return result;
     }
 
@@ -385,10 +543,9 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     const bool responseWasTruncated = finishReason == QLatin1String("length") || finishReason == QLatin1String("max_tokens");
     if (content.isEmpty()) {
         result.outputLimitReached = responseWasTruncated;
-        result.error = responseWasTruncated
-                           ? QStringLiteral("The AI model reached its output token limit before returning an edit plan.")
-                       : finishReason.isEmpty() ? QStringLiteral("The AI provider response did not contain an edit plan.")
-                                                : QStringLiteral("The AI provider returned no edit plan (finish reason: %1).").arg(finishReason);
+        result.error = responseWasTruncated     ? i18n("The AI model reached its output token limit before returning an edit plan.")
+                       : finishReason.isEmpty() ? i18n("The AI provider response did not contain an edit plan.")
+                                                : i18n("The AI provider returned no edit plan (finish reason: %1).", finishReason);
         return result;
     }
 
@@ -400,11 +557,48 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     if (!parsed.isValid()) {
         result.planJson.clear();
         result.outputLimitReached = responseWasTruncated;
-        result.error = responseWasTruncated ? QStringLiteral("The AI model reached its output token limit before returning a complete edit plan.")
-                                             : QStringLiteral("The AI provider returned an unsafe edit plan: %1").arg(parsed.error);
+        result.error = responseWasTruncated ? i18n("The AI model reached its output token limit before returning a complete edit plan.")
+                                            : i18n("The AI provider returned an unsafe edit plan: %1", parsed.error);
         return result;
     }
     result.plan = parsed.plan;
+    return result;
+}
+
+PromptSuggestionResponse AiProviderClient::parsePromptSuggestionResponse(AiProvider provider, const QByteArray &payload)
+{
+    PromptSuggestionResponse result;
+    QJsonParseError envelopeError;
+    const QJsonDocument envelope = QJsonDocument::fromJson(payload, &envelopeError);
+    if (envelopeError.error != QJsonParseError::NoError || !envelope.isObject()) {
+        result.error = i18n("The AI provider returned an invalid JSON response.");
+        return result;
+    }
+    QJsonParseError contentError;
+    const QJsonDocument content = QJsonDocument::fromJson(responseContent(provider, envelope.object()).toUtf8(), &contentError);
+    if (contentError.error != QJsonParseError::NoError || !content.isObject()) {
+        result.error = i18n("The AI provider did not return valid prompt suggestions.");
+        return result;
+    }
+    const QJsonArray suggestions = content.object().value(QStringLiteral("suggestions")).toArray();
+    if (suggestions.isEmpty() || suggestions.size() > 6) {
+        result.error = i18n("The AI provider returned an invalid number of prompt suggestions.");
+        return result;
+    }
+    QSet<QString> seen;
+    for (const QJsonValue &value : suggestions) {
+        const QJsonObject suggestion = value.toObject();
+        const QString title = suggestion.value(QStringLiteral("title")).toString().trimmed();
+        const QString prompt = suggestion.value(QStringLiteral("prompt")).toString().trimmed();
+        if (title.isEmpty() || title.size() > 80 || prompt.isEmpty() || prompt.size() > 1200 || seen.contains(prompt.toCaseFolded())) {
+            continue;
+        }
+        seen.insert(prompt.toCaseFolded());
+        result.suggestions.push_back({title, prompt});
+    }
+    if (result.suggestions.isEmpty()) {
+        result.error = i18n("The AI provider response did not contain usable prompt suggestions.");
+    }
     return result;
 }
 
@@ -419,25 +613,24 @@ AiProviderResponse AiProviderClient::completeResponse(AiProvider provider, int h
     AiProviderResponse result;
     if (wasCancelled || networkError == QNetworkReply::OperationCanceledError) {
         result.cancelled = true;
-        result.error = QStringLiteral("The AI request was cancelled.");
+        result.error = i18n("The AI request was cancelled.");
         return result;
     }
     if (networkError == QNetworkReply::TimeoutError) {
-        result.error = QStringLiteral("The AI request timed out. Check the connection and try again.");
+        result.error = i18n("The AI request timed out. Check the connection and try again.");
         return result;
     }
     if (httpStatus > 0 && (httpStatus < 200 || httpStatus >= 300)) {
         const QByteArray apiMessage = extractApiError(payload);
-        result.error = apiMessage.isEmpty() ? QStringLiteral("The AI provider returned HTTP %1.").arg(httpStatus)
-                                            : QStringLiteral("The AI provider returned HTTP %1: %2").arg(httpStatus).arg(QString::fromUtf8(apiMessage));
+        result.error = providerHttpError(httpStatus, apiMessage);
         return result;
     }
     if (networkError != QNetworkReply::NoError) {
-        result.error = QStringLiteral("The AI request failed because of a network error.");
+        result.error = i18n("The AI request failed because of a network error.");
         return result;
     }
     if (httpStatus < 200 || httpStatus >= 300) {
-        result.error = QStringLiteral("The AI provider returned an invalid HTTP response.");
+        result.error = i18n("The AI provider returned an invalid HTTP response.");
         return result;
     }
     return parseSuccessfulResponse(provider, payload, allowEmptyPlan);
@@ -452,7 +645,7 @@ void AiProviderClient::requestPlan(AiProvider provider, const QString &model, co
                                    const QString &transcript, bool allowEmptyPlan)
 {
     if (isBusy()) {
-        Q_EMIT errorOccurred(QStringLiteral("An AI request is already running."));
+        Q_EMIT errorOccurred(i18n("An AI request is already running."));
         return;
     }
     const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps, transcript, allowEmptyPlan);
@@ -465,10 +658,24 @@ void AiProviderClient::requestPlan(AiProvider provider, const QString &model, co
     startRequest(built, provider, RequestKind::EditPlan);
 }
 
+void AiProviderClient::requestPromptSuggestions(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &context, bool consolidate)
+{
+    if (isBusy()) {
+        Q_EMIT errorOccurred(i18n("An AI request is already running."));
+        return;
+    }
+    const BuiltAiRequest built = buildPromptSuggestionRequest(provider, model, apiKey, context, consolidate);
+    if (!built.isValid()) {
+        Q_EMIT errorOccurred(built.error);
+        return;
+    }
+    startRequest(built, provider, RequestKind::PromptSuggestions);
+}
+
 void AiProviderClient::testConnection(AiProvider provider, const QByteArray &apiKey)
 {
     if (isBusy()) {
-        Q_EMIT connectionTested(false, QStringLiteral("Another provider request is already running."));
+        Q_EMIT connectionTested(false, i18n("Another provider request is already running."));
         return;
     }
     const BuiltAiRequest built = buildConnectionTestRequest(provider, apiKey);
@@ -505,13 +712,29 @@ void AiProviderClient::startRequest(const BuiltAiRequest &built, AiProvider prov
             if (m_cancelRequested || networkError == QNetworkReply::OperationCanceledError) {
                 Q_EMIT requestCancelled();
             } else if (status >= 200 && status < 300 && networkError == QNetworkReply::NoError) {
-                Q_EMIT connectionTested(true, QStringLiteral("Connection successful."));
+                Q_EMIT connectionTested(true, i18n("Connection successful."));
             } else {
                 const QByteArray apiMessage = extractApiError(payload);
-                const QString message = apiMessage.isEmpty()
-                                            ? QStringLiteral("Connection test failed (HTTP %1).").arg(status)
-                                            : QStringLiteral("Connection test failed (HTTP %1): %2").arg(status).arg(QString::fromUtf8(apiMessage));
+                const QString message = providerHttpError(status, apiMessage);
                 Q_EMIT connectionTested(false, message);
+            }
+            return;
+        }
+        if (requestKind == RequestKind::PromptSuggestions) {
+            if (m_cancelRequested || networkError == QNetworkReply::OperationCanceledError) {
+                Q_EMIT requestCancelled();
+                return;
+            }
+            if (networkError != QNetworkReply::NoError || status < 200 || status >= 300) {
+                const auto failed = completeResponse(m_activeProvider, status, networkError, false, payload, false);
+                Q_EMIT errorOccurred(failed.error);
+                return;
+            }
+            const auto suggestions = parsePromptSuggestionResponse(m_activeProvider, payload);
+            if (!suggestions.isValid()) {
+                Q_EMIT errorOccurred(suggestions.error);
+            } else {
+                Q_EMIT promptSuggestionsReady(suggestions.suggestions);
             }
             return;
         }
