@@ -51,9 +51,24 @@
     .steps{border-top:1px solid var(--line);flex:1}.step{width:100%;display:grid;grid-template-columns:34px 1fr;gap:11px;padding:16px 22px;border:0;border-bottom:1px solid var(--line);border-left:3px solid transparent;background:transparent;color:inherit;text-align:left;cursor:pointer}.step:hover{background:#ffffff08}.step.on{border-left-color:var(--guide);background:#ffb4540d}.n{width:28px;height:28px;display:grid;place-items:center;border:1px solid #465363;color:var(--muted);font:12px monospace}.step.on .n{background:var(--guide);border-color:var(--guide);color:#1b1408}.step b{display:block;font-size:14px}.step small{color:var(--muted);font-size:12px}
     .guide-nav{display:flex;gap:8px;padding:16px 22px}.guide-nav button{flex:1;border:1px solid var(--line);background:transparent;color:var(--ink);padding:10px;cursor:pointer}.guide-nav .next{background:var(--guide);color:#1b1408;border-color:var(--guide);font-weight:750}
     .features{padding:70px 0}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:28px}.card{border:1px solid var(--line);background:var(--panel);padding:23px;min-height:190px}.card .icon{color:var(--cyan);font:22px monospace}.card h3{margin:28px 0 8px}.card p{font-size:14px;color:var(--muted);margin:0}
-    footer{border-top:1px solid var(--line);padding:32px 0 48px;color:var(--muted);font-size:13px}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:24px}.links{display:flex;gap:16px;flex-wrap:wrap}.links a{color:#dce6ef}
+    .credits{border-top:1px solid var(--line);padding:28px 0 36px;color:var(--muted);font-size:13px}
+    /* Rodapé fixo no pé da tela, como o do FirawSelector: baixar, os dois códigos e apoiar ficam sempre à mão. */
+    .dock{position:sticky;bottom:0;z-index:20;background:rgba(8,11,16,.92);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-top:1px solid var(--line)}
+    .dock-row{display:flex;align-items:center;gap:18px;padding:11px 0}
+    .dock .meta{font-size:12px;color:var(--muted);line-height:1.45;min-width:0}.dock .meta b{color:#c9d3de;font-weight:600}
+    .dock .sub{display:block;font:11px ui-monospace,Consolas,monospace;color:var(--muted);margin-top:2px}
+    .dock .links{margin-left:auto;display:flex;gap:9px;flex-wrap:wrap}
+    .dock a{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 15px;border-radius:7px;text-decoration:none;font:650 13px var(--display);border:1px solid var(--line);color:var(--ink);white-space:nowrap}
+    .dock a:hover{background:#ffffff0f}.dock a:focus-visible{outline:2px solid var(--guide);outline-offset:2px}
+    .dock a.pri{background:var(--cyan);border-color:var(--cyan);color:#06161e}.dock a.pri:hover{background:#67e8f9}
+    /* O apoiar é o único que se mexe sozinho: o brilho respira em 2,4 s (nada de pisca-pisca) e para para quem pediu menos animação. */
+    .dock a.apoiar{border-color:transparent;color:#06161e;font-weight:700;background:linear-gradient(100deg,var(--cyan),#7dd3fc 45%,var(--cyan2));animation:neonApoiar 2.4s ease-in-out infinite}
+    .dock a.apoiar:hover{filter:brightness(1.08)}
+    @keyframes neonApoiar{0%,100%{box-shadow:0 0 12px rgba(34,211,238,.5),0 0 26px rgba(34,211,238,.2)}50%{box-shadow:0 0 22px rgba(8,145,178,.65),0 0 46px rgba(8,145,178,.3)}}
+    @media(prefers-reduced-motion:reduce){.dock a.apoiar{animation:none}}
+    @media(max-width:1050px){.dock-row{flex-wrap:wrap}.dock .links{margin-left:0;width:100%}.dock a{flex:1 1 auto;justify-content:center}}
     @media(max-width:1050px){.intro{grid-template-columns:1fr}.identity{display:none}.tour{grid-template-columns:1fr}.guide{border-left:0;border-top:1px solid var(--line)}.workspace{grid-template-columns:300px 1fr}.cards{grid-template-columns:1fr 1fr}}
-    @media(max-width:720px){.shell{width:min(100% - 24px,1480px)}header{height:auto;padding:14px 0}nav a:not(.button){display:none}.intro{padding:48px 0}.facts{grid-template-columns:1fr}.section-head{display:block}.section-head p{margin-top:14px}.tour{min-height:0}.stage{padding:10px;overflow:auto}.window{width:950px;min-height:590px}.guide{min-height:620px}.cards{grid-template-columns:1fr}.footer-row{align-items:flex-start;flex-direction:column}}
+    @media(max-width:720px){.shell{width:min(100% - 24px,1480px)}header{height:auto;padding:14px 0}nav a:not(.button){display:none}.intro{padding:48px 0}.facts{grid-template-columns:1fr}.section-head{display:block}.section-head p{margin-top:14px}.tour{min-height:0}.stage{padding:10px;overflow:auto}.window{width:950px;min-height:590px}.guide{min-height:620px}.cards{grid-template-columns:1fr}.dock{position:static}}
   </style>
 </head>
 <body>
@@ -68,7 +83,7 @@
         <div class="eyebrow">Edição por intenção, controle humano no final</div>
         <h1>Descreva a edição. A IA <span>monta o plano.</span></h1>
         <p class="lead">Um fork do Kdenlive que combina transcrição local, modelos no seu computador e provedores por API. A mídia não precisa sair da máquina e nenhuma alteração acontece sem sua aprovação.</p>
-        <div class="actions"><a class="button primary" href="#demo">Ver demonstração</a><a class="button outline" href="https://github.com/firawynix/kdenlive/releases" target="_blank" rel="noreferrer">Baixar para Windows</a></div>
+        <div class="actions"><a class="button primary" href="#demo">Ver demonstração</a><a class="button outline" href="https://github.com/firawynix/kdenlive/releases/latest/download/Firawynix-Kdenlive-Setup-x64.exe">Baixar para Windows</a></div>
         <div class="facts" style="margin-top:38px"><div class="fact"><strong>Local</strong><span>Whisper e Ollama no computador</span></div><div class="fact"><strong>4</strong><span>OpenRouter, OpenAI, Claude e Ollama</span></div><div class="fact"><strong>1 clique</strong><span>Desfazer restaura a timeline</span></div></div>
       </div>
       <div class="identity"><img src="assets/firawynix-kdenlive.png?v=20260911" alt="Ícone do Firawynix - Kdenlive"></div>
@@ -113,7 +128,31 @@
     </section>
   </main>
 
-  <footer><div class="footer-row shell"><span>Firawynix - Kdenlive é um fork independente sob GPL, baseado no trabalho da comunidade KDE.</span><div class="links"><a href="https://github.com/KDE/kdenlive" target="_blank" rel="noreferrer">Projeto original: KDE/Kdenlive</a><a href="https://github.com/firawynix/kdenlive" target="_blank" rel="noreferrer">Fork: firawynix/kdenlive</a><a href="https://kdenlive.org" target="_blank" rel="noreferrer">kdenlive.org</a></div></div></footer>
+  <p class="credits shell">Firawynix - Kdenlive é um fork independente sob GPL, baseado no trabalho da comunidade KDE. O editor original é o <a href="https://kdenlive.org" target="_blank" rel="noreferrer">Kdenlive</a>, criado e mantido pela KDE.</p>
+
+  <footer class="dock">
+    <div class="dock-row shell">
+      <div class="meta">
+        <b>Windows 10 e 11 · 64 bits · sempre a versão mais recente</b>
+        <span class="sub">pede administrador para instalar · o launcher confere cada atualização por SHA-256 antes de abrir</span>
+      </div>
+      <div class="links">
+        <a class="pri" href="https://github.com/firawynix/kdenlive/releases/latest/download/Firawynix-Kdenlive-Setup-x64.exe">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9M4.5 6.5L8 10l3.5-3.5M2 13h12" stroke="currentColor" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Baixar instalador
+        </a>
+        <a href="https://github.com/firawynix/kdenlive" target="_blank" rel="noreferrer">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Meu código: firawynix/kdenlive
+        </a>
+        <a href="https://github.com/KDE/kdenlive" target="_blank" rel="noreferrer">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Criador: KDE/kdenlive
+        </a>
+        <a class="apoiar" href="https://firawynix.com.br/apoie?de=kdenlive">♥ Apoiar</a>
+      </div>
+    </div>
+  </footer>
 
   <script>
     const tourSteps=[

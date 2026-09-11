@@ -9,4 +9,4 @@ Last updated: 2026-09-11
 - [ai-provider-api](ai-provider-api.md) — Cloud provider adapters, local Ollama, and credential/privacy boundary | integration | AI, API, security
 - [ai-semantic-cleanup](ai-semantic-cleanup.md) — Local Whisper, transcript privacy, mute ranges, and atomic multi-edit plans | flow | AI, audio, Whisper, undo
 - [ai-selective-edits](ai-selective-edits.md) — Per-operation undo/redo and iterative plans on the current timeline | flow | AI, undo, iteration
-- [windows-distribution](windows-distribution.md) — Firawynix branding, PT-BR catalog routing, installer, updater, and demo site | setup | windows, packaging, website
+- [windows-distribution](windows-distribution.md) — Firawynix branding, PT-BR catalog routing, installer, updater, demo site hosting, and Firawynix Center sync | setup | windows, packaging, website, release
