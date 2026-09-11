@@ -16,6 +16,29 @@
 namespace Kdenlive {
 namespace AiEditor {
 
+namespace {
+EditPlanExecutionResult preflightOperation(const std::shared_ptr<TimelineItemModel> &timeline, const EditOperation &operation)
+{
+    EditPlanExecutionResult result;
+    if (operation.endFrame() > timeline->duration()) {
+        result.error = QStringLiteral("An edit operation extends beyond the active timeline.");
+        return result;
+    }
+    if (operation.type == EditOperationType::RetimeRange) {
+        if (operation.retimeRange.targetDurationFrames > operation.retimeRange.endFrame - operation.retimeRange.startFrame) {
+            result.error = QStringLiteral("Making a range longer is not supported yet.");
+            return result;
+        }
+        const auto validation = RetimeRangeExecutor::preflight(timeline, operation.retimeRange);
+        result.error = validation.error;
+    } else {
+        const auto validation = MuteRangeExecutor::preflight(timeline, operation.muteRange);
+        result.error = validation.error;
+    }
+    return result;
+}
+} // namespace
+
 bool EditPlanExecutionResult::isValid() const
 {
     return error.isEmpty();
@@ -29,25 +52,32 @@ EditPlanExecutionResult EditPlanExecutor::preflight(const std::shared_ptr<Timeli
         return result;
     }
     for (const EditOperation &operation : plan.operations) {
-        if (operation.endFrame() > timeline->duration()) {
-            result.error = QStringLiteral("An edit operation extends beyond the active timeline.");
+        result = preflightOperation(timeline, operation);
+        if (!result.isValid()) {
             return result;
         }
-        if (operation.type == EditOperationType::RetimeRange) {
-            if (operation.retimeRange.targetDurationFrames > operation.retimeRange.endFrame - operation.retimeRange.startFrame) {
-                result.error = QStringLiteral("Making a range longer is not supported yet.");
-                return result;
-            }
-            const auto validation = RetimeRangeExecutor::preflight(timeline, operation.retimeRange);
-            if (!validation.isValid()) {
-                result.error = validation.error;
-                return result;
-            }
+    }
+    return result;
+}
+
+CompatibleEditPlan EditPlanExecutor::compatiblePlan(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan)
+{
+    CompatibleEditPlan result;
+    result.plan.version = plan.version;
+    if (!timeline) {
+        result.skippedOperations = int(plan.operations.size());
+        result.firstSkippedReason = QStringLiteral("No active timeline is available.");
+        return result;
+    }
+    result.plan.operations.reserve(plan.operations.size());
+    for (const EditOperation &operation : plan.operations) {
+        const auto validation = preflightOperation(timeline, operation);
+        if (validation.isValid()) {
+            result.plan.operations.push_back(operation);
         } else {
-            const auto validation = MuteRangeExecutor::preflight(timeline, operation.muteRange);
-            if (!validation.isValid()) {
-                result.error = validation.error;
-                return result;
+            ++result.skippedOperations;
+            if (result.firstSkippedReason.isEmpty()) {
+                result.firstSkippedReason = validation.error;
             }
         }
     }

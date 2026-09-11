@@ -71,6 +71,16 @@ TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Seman
     retime.retimeRange = {200, 300, 25, true};
     plan.operations << retime;
 
+    EditPlan partiallyCompatible = plan;
+    EditOperation unsupported;
+    unsupported.type = EditOperationType::MuteRange;
+    unsupported.muteRange = {450, 550};
+    partiallyCompatible.operations << unsupported;
+    const auto compatible = EditPlanExecutor::compatiblePlan(timeline, partiallyCompatible);
+    REQUIRE(compatible.plan.operations.size() == 2);
+    REQUIRE(compatible.skippedOperations == 1);
+    REQUIRE_FALSE(compatible.firstSkippedReason.isEmpty());
+
     const int undoIndex = undoStack->index();
     const auto result = EditPlanExecutor::apply(timeline, plan);
     INFO(result.error.toStdString());

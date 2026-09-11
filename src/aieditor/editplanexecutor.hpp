@@ -21,10 +21,18 @@ struct EditPlanExecutionResult
     bool isValid() const;
 };
 
+struct CompatibleEditPlan
+{
+    EditPlan plan;
+    int skippedOperations{0};
+    QString firstSkippedReason;
+};
+
 class EditPlanExecutor
 {
 public:
     static EditPlanExecutionResult preflight(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
+    static CompatibleEditPlan compatiblePlan(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
     static EditPlanExecutionResult apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
 };
 

@@ -654,7 +654,12 @@ void AssistantDock::showPlan(const QByteArray &planJson)
         return;
     }
 
-    m_plan = parsed.plan;
+    const auto compatible = EditPlanExecutor::compatiblePlan(timelineWidget->model(), parsed.plan);
+    if (compatible.plan.operations.isEmpty()) {
+        setStatus(i18n("No proposed operation can be applied safely to this timeline. First reason: %1", compatible.firstSkippedReason), true);
+        return;
+    }
+    m_plan = compatible.plan;
     m_hasPlan = true;
     const double fps = pCore->getCurrentFps();
     QStringList preview;
@@ -683,7 +688,10 @@ void AssistantDock::showPlan(const QByteArray &planJson)
     }
     m_apply->setEnabled(true);
     hideProgress();
-    setStatus(i18n("Plan validated. Review it, then choose Apply."));
+    setStatus(compatible.skippedOperations > 0
+                  ? i18n("Plan validated with %1 safe operations. %2 incompatible operations were skipped. First reason: %3", m_plan.operations.size(),
+                         compatible.skippedOperations, compatible.firstSkippedReason)
+                  : i18n("Plan validated. Review it, then choose Apply."));
 }
 
 void AssistantDock::applyPlan()

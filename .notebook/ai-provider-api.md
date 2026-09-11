@@ -67,3 +67,9 @@ also handles cross-segment conflicts created before this recovery existed.
 The strict combined-plan ceiling is 4,096 operations (still bounded by the
 256-KiB payload limit), while each provider response remains schema-limited to
 256. This supports long recordings without weakening the per-request boundary.
+
+Before preview, each normalized operation is preflighted independently against
+the active timeline. Operations that cannot preserve existing aligned groups,
+clip boundaries, locks, mixes, or subtitles are omitted; compatible operations
+remain reviewable and applicable as one undo action. The UI reports the skipped
+count and first reason rather than weakening executor invariants.
