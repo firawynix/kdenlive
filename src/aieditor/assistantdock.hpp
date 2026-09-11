@@ -49,6 +49,7 @@ private:
     void generatePlan();
     void requestProviderPlan(const QString &transcript = QString(), const QString &timelineFingerprint = QString());
     void requestNextTranscriptChunk();
+    void retryWithSmallerTranscriptChunks(const QString &message);
     void handleProviderPlan(const QByteArray &planJson);
     void finishChunkedPlan();
     void resetPlanPreview();

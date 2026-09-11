@@ -22,3 +22,18 @@ Windows runtime installation, local-server probing, and streamed model pulls.
 The shared completion classifier keeps cancellation separate from timeout,
 network errors, HTTP errors, and invalid/unsafe plan payloads. The live request
 has a three-minute cloud transfer timeout and can be aborted by the user.
+
+## Output-limit recovery
+
+Transcript requests start at 4,000 characters per segment. A provider response
+whose finish reason is `length` or `max_tokens` is classified separately from
+ordinary provider failures. The assistant automatically halves the segment
+budget down to 1,000 characters, rebuilds only the provider-analysis segments,
+and retries without rerunning local Whisper transcription.
+
+The chosen segment budget and reduction count are stored in the credential-free
+session checkpoint. Legacy checkpoints with no completed provider segment adopt
+the safer 4,000-character budget; legacy checkpoints already in progress retain
+their former 16,000-character mapping so completed segment indexes remain valid.
+Automatic subdivision is bounded to four reductions to prevent retry loops. If
+the minimum still fails, the UI asks for a model with a larger output allowance.

@@ -286,8 +286,10 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
             finishReason = choice.value(QStringLiteral("finish_reason")).toString();
         }
     }
+    const bool responseWasTruncated = finishReason == QLatin1String("length") || finishReason == QLatin1String("max_tokens");
     if (content.isEmpty()) {
-        result.error = finishReason == QLatin1String("length") || finishReason == QLatin1String("max_tokens")
+        result.outputLimitReached = responseWasTruncated;
+        result.error = responseWasTruncated
                            ? QStringLiteral("The AI model reached its output token limit before returning an edit plan.")
                        : finishReason.isEmpty() ? QStringLiteral("The AI provider response did not contain an edit plan.")
                                                 : QStringLiteral("The AI provider returned no edit plan (finish reason: %1).").arg(finishReason);
@@ -298,7 +300,9 @@ AiProviderResponse AiProviderClient::parseSuccessfulResponse(AiProvider provider
     const auto parsed = parseEditPlan(result.planJson, allowEmptyPlan);
     if (!parsed.isValid()) {
         result.planJson.clear();
-        result.error = QStringLiteral("The AI provider returned an unsafe edit plan: %1").arg(parsed.error);
+        result.outputLimitReached = responseWasTruncated;
+        result.error = responseWasTruncated ? QStringLiteral("The AI model reached its output token limit before returning a complete edit plan.")
+                                             : QStringLiteral("The AI provider returned an unsafe edit plan: %1").arg(parsed.error);
         return result;
     }
     result.plan = parsed.plan;
@@ -411,7 +415,11 @@ void AiProviderClient::startRequest(const BuiltAiRequest &built, AiProvider prov
         if (result.cancelled) {
             Q_EMIT requestCancelled();
         } else if (!result.isValid()) {
-            Q_EMIT errorOccurred(result.error);
+            if (result.outputLimitReached) {
+                Q_EMIT outputLimitReached(result.error);
+            } else {
+                Q_EMIT errorOccurred(result.error);
+            }
         } else {
             Q_EMIT planReady(result.planJson);
         }

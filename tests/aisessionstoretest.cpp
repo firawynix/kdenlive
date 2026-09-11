@@ -7,6 +7,10 @@
 
 #include "aieditor/aisessionstore.hpp"
 
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+
 using namespace Kdenlive::AiEditor;
 
 TEST_CASE("AI transcript chunks stay bounded and retain boundary context", "[AIEditor][Checkpoint]")
@@ -36,6 +40,8 @@ TEST_CASE("AI checkpoint round trip excludes credentials", "[AIEditor][Checkpoin
     checkpoint.timelineFrames = 90000;
     checkpoint.fps = 25.0;
     checkpoint.transcript = QStringLiteral("[0-25] work");
+    checkpoint.chunkCharacters = 4000;
+    checkpoint.chunkReductions = 1;
     checkpoint.nextChunk = 1;
     checkpoint.planFragments = {QStringLiteral(R"({"version":1,"operations":[]})")};
 
@@ -46,7 +52,35 @@ TEST_CASE("AI checkpoint round trip excludes credentials", "[AIEditor][Checkpoin
     REQUIRE(restored.has_value());
     REQUIRE(restored->id == checkpoint.id);
     REQUIRE(restored->nextChunk == 1);
+    REQUIRE(restored->chunkCharacters == 4000);
+    REQUIRE(restored->chunkReductions == 1);
     REQUIRE(restored->planFragments == checkpoint.planFragments);
+}
+
+TEST_CASE("Legacy AI checkpoints use safe compatible transcript chunk sizes", "[AIEditor][Checkpoint]")
+{
+    AiSessionCheckpoint checkpoint;
+    checkpoint.id = QString(64, QLatin1Char('a'));
+    checkpoint.timelineFingerprint = QString(64, QLatin1Char('b'));
+    checkpoint.model = QStringLiteral("model");
+    checkpoint.prompt = QStringLiteral("prompt");
+    checkpoint.timelineFrames = 100;
+    checkpoint.fps = 25.0;
+    checkpoint.transcript = QStringLiteral("[0-25] work");
+    QJsonObject root = QJsonDocument::fromJson(AiSessionStore::serialize(checkpoint)).object();
+    root.remove(QStringLiteral("chunk_characters"));
+    root.remove(QStringLiteral("chunk_reductions"));
+
+    const auto untouched = AiSessionStore::deserialize(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    REQUIRE(untouched.has_value());
+    REQUIRE(untouched->chunkCharacters == AiSessionStore::DefaultChunkCharacters);
+    REQUIRE(untouched->chunkReductions == 0);
+
+    root.insert(QStringLiteral("next_chunk"), 1);
+    root.insert(QStringLiteral("plan_fragments"), QJsonArray{QStringLiteral(R"({"version":1,"operations":[]})")});
+    const auto inProgress = AiSessionStore::deserialize(QJsonDocument(root).toJson(QJsonDocument::Compact));
+    REQUIRE(inProgress.has_value());
+    REQUIRE(inProgress->chunkCharacters == AiSessionStore::LegacyChunkCharacters);
 }
 
 TEST_CASE("AI timeline fingerprint ignores the temporary folder", "[AIEditor][Checkpoint]")

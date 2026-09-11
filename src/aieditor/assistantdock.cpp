@@ -238,6 +238,14 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_discard, &QPushButton::clicked, this, &AssistantDock::discardPlan);
     connect(m_client, &AiProviderClient::busyChanged, this, &AssistantDock::setBusy);
     connect(m_client, &AiProviderClient::planReady, this, &AssistantDock::handleProviderPlan);
+    connect(m_client, &AiProviderClient::outputLimitReached, this, [this](const QString &message) {
+        if (m_chunkedRequest) {
+            retryWithSmallerTranscriptChunks(message);
+            return;
+        }
+        hideProgress();
+        setStatus(message, true);
+    });
     connect(m_client, &AiProviderClient::errorOccurred, this, [this](const QString &message) {
         hideProgress();
         setStatus(m_chunkedRequest ? i18n("%1 Progress is saved locally. Choose Generate plan to resume.", message) : message, true);
@@ -447,13 +455,14 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
         return;
     }
 
-    m_transcriptChunks = AiSessionStore::splitTranscript(transcript, timelineFrames);
+    const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), m_model->text(), m_pendingPrompt, timelineFrames, fps);
+    const auto saved = AiSessionStore::load(id);
+    const qsizetype chunkCharacters = saved ? saved->chunkCharacters : AiSessionStore::DefaultChunkCharacters;
+    m_transcriptChunks = AiSessionStore::splitTranscript(transcript, timelineFrames, chunkCharacters);
     if (m_transcriptChunks.isEmpty()) {
         setStatus(i18n("The saved transcript contains no usable dialogue."), true);
         return;
     }
-    const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), m_model->text(), m_pendingPrompt, timelineFrames, fps);
-    const auto saved = AiSessionStore::load(id);
     if (saved && saved->timelineFingerprint == timelineFingerprint && saved->provider == selectedProvider() && saved->model == m_model->text().trimmed() &&
         saved->prompt == m_pendingPrompt.trimmed() && saved->timelineFrames == timelineFrames && qFuzzyCompare(saved->fps, fps) &&
         saved->nextChunk <= m_transcriptChunks.size()) {
@@ -469,6 +478,7 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
         m_checkpoint.timelineFrames = timelineFrames;
         m_checkpoint.fps = fps;
         m_checkpoint.transcript = transcript;
+        m_checkpoint.chunkCharacters = AiSessionStore::DefaultChunkCharacters;
         QString error;
         if (!AiSessionStore::save(m_checkpoint, &error)) {
             setStatus(error, true);
@@ -478,6 +488,36 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     m_chunkedRequest = true;
     m_providerStartChunk = m_checkpoint.nextChunk;
     m_providerTimer.restart();
+    requestNextTranscriptChunk();
+}
+
+void AssistantDock::retryWithSmallerTranscriptChunks(const QString &message)
+{
+    if (m_checkpoint.chunkReductions >= AiSessionStore::MaximumChunkReductions ||
+        m_checkpoint.chunkCharacters <= AiSessionStore::MinimumChunkCharacters) {
+        hideProgress();
+        setStatus(i18n("%1 The transcript was already divided into the smallest safe segments. Choose a model with a larger output limit.", message), true);
+        return;
+    }
+
+    const int previousCharacters = m_checkpoint.chunkCharacters;
+    m_checkpoint.chunkCharacters = qMax<int>(AiSessionStore::MinimumChunkCharacters, previousCharacters / 2);
+    ++m_checkpoint.chunkReductions;
+    m_checkpoint.nextChunk = 0;
+    m_checkpoint.planFragments.clear();
+    m_transcriptChunks =
+        AiSessionStore::splitTranscript(m_checkpoint.transcript, m_checkpoint.timelineFrames, m_checkpoint.chunkCharacters);
+    QString error;
+    if (m_transcriptChunks.isEmpty() || !AiSessionStore::save(m_checkpoint, &error)) {
+        hideProgress();
+        setStatus(m_transcriptChunks.isEmpty() ? i18n("The saved transcript contains no usable dialogue.") : error, true);
+        return;
+    }
+
+    m_providerStartChunk = 0;
+    m_providerTimer.restart();
+    setStatus(i18n("The model reached its limit. Retrying automatically with %1 smaller segments; the local transcript is being reused.",
+                   m_transcriptChunks.size()));
     requestNextTranscriptChunk();
 }
 

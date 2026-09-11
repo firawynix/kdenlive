@@ -176,6 +176,8 @@ QByteArray AiSessionStore::serialize(const AiSessionCheckpoint &checkpoint)
                            {QStringLiteral("timeline_frames"), checkpoint.timelineFrames},
                            {QStringLiteral("fps"), checkpoint.fps},
                            {QStringLiteral("transcript"), checkpoint.transcript},
+                           {QStringLiteral("chunk_characters"), checkpoint.chunkCharacters},
+                           {QStringLiteral("chunk_reductions"), checkpoint.chunkReductions},
                            {QStringLiteral("next_chunk"), checkpoint.nextChunk},
                            {QStringLiteral("plan_fragments"), fragments},
                            {QStringLiteral("updated_at_utc"), QDateTime::currentDateTimeUtc().toSecsSinceEpoch()}};
@@ -199,7 +201,11 @@ std::optional<AiSessionCheckpoint> AiSessionStore::deserialize(const QByteArray 
     checkpoint.timelineFrames = root.value(QStringLiteral("timeline_frames")).toInt();
     checkpoint.fps = root.value(QStringLiteral("fps")).toDouble();
     checkpoint.transcript = root.value(QStringLiteral("transcript")).toString();
+    checkpoint.chunkReductions = root.value(QStringLiteral("chunk_reductions")).toInt(0);
     checkpoint.nextChunk = root.value(QStringLiteral("next_chunk")).toInt(-1);
+    checkpoint.chunkCharacters = root.contains(QStringLiteral("chunk_characters"))
+                                     ? root.value(QStringLiteral("chunk_characters")).toInt()
+                                     : (checkpoint.nextChunk == 0 ? DefaultChunkCharacters : LegacyChunkCharacters);
     const QJsonArray fragments = root.value(QStringLiteral("plan_fragments")).toArray();
     for (const QJsonValue &fragment : fragments) {
         if (!fragment.isString()) {
@@ -209,7 +215,9 @@ std::optional<AiSessionCheckpoint> AiSessionStore::deserialize(const QByteArray 
     }
     if (checkpoint.version != 1 || safeFileId(checkpoint.id).isEmpty() || safeFileId(checkpoint.timelineFingerprint).isEmpty() || provider < 0 ||
         provider > 3 || checkpoint.model.isEmpty() || checkpoint.prompt.isEmpty() || checkpoint.timelineFrames < 1 || checkpoint.fps <= 0.0 ||
-        checkpoint.transcript.isEmpty() || checkpoint.nextChunk < 0 || checkpoint.nextChunk != checkpoint.planFragments.size()) {
+        checkpoint.transcript.isEmpty() || checkpoint.chunkCharacters < MinimumChunkCharacters || checkpoint.chunkCharacters > LegacyChunkCharacters ||
+        checkpoint.chunkReductions < 0 || checkpoint.chunkReductions > MaximumChunkReductions || checkpoint.nextChunk < 0 ||
+        checkpoint.nextChunk != checkpoint.planFragments.size()) {
         return std::nullopt;
     }
     checkpoint.provider = AiProvider(provider);

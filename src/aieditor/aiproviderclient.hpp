@@ -38,6 +38,7 @@ struct AiProviderResponse
     QByteArray planJson;
     QString error;
     bool cancelled{false};
+    bool outputLimitReached{false};
 
     bool isValid() const;
 };
@@ -68,6 +69,7 @@ public:
 Q_SIGNALS:
     void planReady(const QByteArray &validatedPlanJson);
     void errorOccurred(const QString &message);
+    void outputLimitReached(const QString &message);
     void requestCancelled();
     void connectionTested(bool success, const QString &message);
     void busyChanged(bool busy);

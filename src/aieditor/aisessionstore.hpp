@@ -34,6 +34,8 @@ struct AiSessionCheckpoint
     int timelineFrames{0};
     double fps{0.0};
     QString transcript;
+    int chunkCharacters{4000};
+    int chunkReductions{0};
     int nextChunk{0};
     QStringList planFragments;
 };
@@ -41,7 +43,10 @@ struct AiSessionCheckpoint
 class AiSessionStore
 {
 public:
-    static constexpr qsizetype DefaultChunkCharacters = 16000;
+    static constexpr qsizetype DefaultChunkCharacters = 4000;
+    static constexpr qsizetype LegacyChunkCharacters = 16000;
+    static constexpr qsizetype MinimumChunkCharacters = 1000;
+    static constexpr int MaximumChunkReductions = 4;
 
     static QString timelineFingerprint(const QByteArray &sceneData, double fps, const QString &whisperModel, const QString &language,
                                        const QString &temporaryPath = QString());

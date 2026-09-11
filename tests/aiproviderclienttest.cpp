@@ -143,7 +143,17 @@ TEST_CASE("AI provider response validation", "[AIEditor][Provider]")
         const QByteArray payload = R"({"choices":[{"message":{"content":""},"finish_reason":"length"}]})";
         const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 200, QNetworkReply::NoError, false, payload);
         REQUIRE_FALSE(result.isValid());
+        REQUIRE(result.outputLimitReached);
         REQUIRE(result.error.contains(QStringLiteral("token limit")));
+    }
+
+    SECTION("classifies a truncated partial plan as output exhaustion")
+    {
+        const QByteArray payload = R"({"choices":[{"message":{"content":"{\"version\":1"},"finish_reason":"length"}]})";
+        const auto result = AiProviderClient::completeResponse(AiProvider::OpenRouter, 200, QNetworkReply::NoError, false, payload);
+        REQUIRE_FALSE(result.isValid());
+        REQUIRE(result.outputLimitReached);
+        REQUIRE(result.error.contains(QStringLiteral("complete edit plan")));
     }
 
     SECTION("allows an empty plan for a transcript chunk")
