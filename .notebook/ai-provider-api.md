@@ -73,3 +73,9 @@ the active timeline. Operations that cannot preserve existing aligned groups,
 clip boundaries, locks, mixes, or subtitles are omitted; compatible operations
 remain reviewable and applicable as one undo action. The UI reports the skipped
 count and first reason rather than weakening executor invariants.
+
+Large plans keep per-operation undo/redo closures in vectors and expose one
+iterative aggregate undo action. This avoids recursive closure depth growing
+with every edit. The apply callback is throttled to roughly ten UI updates per
+second, allowing the dock to show percentage and ETA while excluding user input
+until the atomic application succeeds or rolls back.

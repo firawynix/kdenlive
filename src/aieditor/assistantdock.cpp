@@ -18,6 +18,8 @@
 #include <KLocalizedString>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
+#include <QEventLoop>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -701,8 +703,32 @@ void AssistantDock::applyPlan()
         setStatus(i18n("There is no valid plan to apply to the active timeline."), true);
         return;
     }
-    const auto result = EditPlanExecutor::apply(timelineWidget->model(), m_plan);
+    m_applyInProgress = true;
+    m_apply->setEnabled(false);
+    m_discard->setEnabled(false);
+    setBusy(true);
+    QElapsedTimer applyTimer;
+    QElapsedTimer paintTimer;
+    applyTimer.start();
+    paintTimer.start();
+    showProgress(0, -1, i18n("Applying AI edit plan"));
+    const auto result = EditPlanExecutor::apply(timelineWidget->model(), m_plan, [this, &applyTimer, &paintTimer](int completed, int total) {
+        if (paintTimer.elapsed() < 100 && completed < total) {
+            return;
+        }
+        const double secondsPerOperation = double(applyTimer.elapsed()) / 1000.0 / double(completed);
+        const qint64 remainingSeconds = qRound64(secondsPerOperation * double(total - completed));
+        showProgress(qRound(double(completed) * 100.0 / double(total)), remainingSeconds,
+                     i18n("Applying timeline edits · %1 of %2", completed, total));
+        QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
+        paintTimer.restart();
+    });
+    m_applyInProgress = false;
+    setBusy(false);
     if (!result.isValid()) {
+        hideProgress();
+        m_apply->setEnabled(true);
+        m_discard->setEnabled(true);
         setStatus(result.error, true);
         return;
     }
@@ -712,6 +738,7 @@ void AssistantDock::applyPlan()
     AiSessionStore::remove(m_checkpoint.id);
     m_checkpoint = {};
     m_transcriptChunks.clear();
+    hideProgress();
     setStatus(i18n("Edit applied. Use Undo once to restore the previous timeline."));
 }
 
@@ -736,7 +763,7 @@ void AssistantDock::setStatus(const QString &message, bool error)
 void AssistantDock::setBusy(bool busy)
 {
     Q_UNUSED(busy)
-    const bool anyBusy = m_client->isBusy() || (m_transcriber && m_transcriber->isBusy()) || (m_localAi && m_localAi->isBusy());
+    const bool anyBusy = m_applyInProgress || m_client->isBusy() || (m_transcriber && m_transcriber->isBusy()) || (m_localAi && m_localAi->isBusy());
     m_generate->setEnabled(!anyBusy);
     m_provider->setEnabled(!anyBusy);
     m_model->setEnabled(!anyBusy);
@@ -751,7 +778,7 @@ void AssistantDock::setBusy(bool busy)
     m_processingDevice->setEnabled(!anyBusy);
     m_preset->setEnabled(!anyBusy);
     m_analyzeAudio->setEnabled(!anyBusy);
-    m_cancel->setEnabled(anyBusy);
+    m_cancel->setEnabled(anyBusy && !m_applyInProgress);
     if (anyBusy && m_client->isBusy() && !m_chunkedRequest) {
         setStatus(i18n("Waiting for the AI provider…"));
     } else if (!anyBusy && !m_hasPlan) {

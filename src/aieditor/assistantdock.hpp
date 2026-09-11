@@ -101,6 +101,7 @@ private:
     QVector<TranscriptChunk> m_transcriptChunks;
     AiSessionCheckpoint m_checkpoint;
     bool m_chunkedRequest{false};
+    bool m_applyInProgress{false};
     QElapsedTimer m_providerTimer;
     int m_providerStartChunk{0};
 };

@@ -7,6 +7,7 @@
 
 #include "editplan.hpp"
 
+#include <functional>
 #include <QString>
 #include <memory>
 
@@ -31,9 +32,12 @@ struct CompatibleEditPlan
 class EditPlanExecutor
 {
 public:
+    using ProgressCallback = std::function<void(int completed, int total)>;
+
     static EditPlanExecutionResult preflight(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
     static CompatibleEditPlan compatiblePlan(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
-    static EditPlanExecutionResult apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan);
+    static EditPlanExecutionResult apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan,
+                                         const ProgressCallback &progress = {});
 };
 
 } // namespace AiEditor

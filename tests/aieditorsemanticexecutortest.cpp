@@ -82,9 +82,16 @@ TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Seman
     REQUIRE_FALSE(compatible.firstSkippedReason.isEmpty());
 
     const int undoIndex = undoStack->index();
-    const auto result = EditPlanExecutor::apply(timeline, plan);
+    int completedOperations = 0;
+    int totalOperations = 0;
+    const auto result = EditPlanExecutor::apply(timeline, plan, [&completedOperations, &totalOperations](int completed, int total) {
+        completedOperations = completed;
+        totalOperations = total;
+    });
     INFO(result.error.toStdString());
     REQUIRE(result.isValid());
+    REQUIRE(completedOperations == 2);
+    REQUIRE(totalOperations == 2);
     REQUIRE(undoStack->index() == undoIndex + 1);
     const int mutedAudio = timeline->getClipByPosition(audioTrack, 50);
     REQUIRE(mutedAudio >= 0);
@@ -102,5 +109,51 @@ TEST_CASE("AI mixed semantic plan applies as one undo action", "[AIEditor][Seman
     REQUIRE(timeline->getClipState(audioClip).first == PlaylistState::AudioOnly);
     REQUIRE(timeline->checkConsistency());
 
+    pCore->projectManager()->closeCurrentDocument(false, false);
+}
+
+TEST_CASE("AI large plans apply and undo without recursive stack growth", "[AIEditor][Semantic][Stress]")
+{
+    auto binModel = pCore->projectItemModel();
+    binModel->clean();
+    auto undoStack = std::make_shared<DocUndoStack>(nullptr);
+    KdenliveDoc document(undoStack, {1, 1});
+    pCore->projectManager()->testSetDocument(&document);
+    KdenliveTests::updateTimeline(false, QString(), QString(), QDateTime::currentDateTime(), false);
+    auto timeline = document.getTimeline(document.uuid());
+    pCore->projectManager()->testSetActiveTimeline(timeline);
+    KdenliveTests::resetNextId();
+
+    QMap<int, QString> audioInfo;
+    audioInfo.insert(1, QStringLiteral("stream1"));
+    KdenliveTests::setAudioTargets(timeline, audioInfo);
+    const int videoTrack = timeline->getTrackIndexFromPosition(1);
+    const QString producer = KdenliveTests::createProducerWithSound(pCore->getProjectProfile(), binModel, 2000);
+    int videoClip = -1;
+    REQUIRE(timeline->requestClipInsertion(producer, videoTrack, 0, videoClip, true, true, false));
+    const int audioClip = KdenliveTests::groupsModel(timeline)->getSplitPartner(videoClip);
+    REQUIRE(audioClip >= 0);
+
+    EditPlan plan;
+    plan.version = 1;
+    for (int index = 0; index < 300; ++index) {
+        EditOperation mute;
+        mute.type = EditOperationType::MuteRange;
+        mute.muteRange = {index * 6, index * 6 + 2};
+        plan.operations.push_back(mute);
+    }
+    int completed = 0;
+    const int undoIndex = undoStack->index();
+    const auto result = EditPlanExecutor::apply(timeline, plan, [&completed](int current, int) { completed = current; });
+    INFO(result.error.toStdString());
+    REQUIRE(result.isValid());
+    REQUIRE(completed == 300);
+    REQUIRE(undoStack->index() == undoIndex + 1);
+    REQUIRE(timeline->checkConsistency());
+
+    undoStack->undo();
+    REQUIRE(timeline->getItemPlaytime(videoClip) == 2000);
+    REQUIRE(timeline->getItemPlaytime(audioClip) == 2000);
+    REQUIRE(timeline->checkConsistency());
     pCore->projectManager()->closeCurrentDocument(false, false);
 }

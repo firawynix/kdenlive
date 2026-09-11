@@ -12,6 +12,7 @@
 
 #include <KLocalizedString>
 #include <algorithm>
+#include <utility>
 
 namespace Kdenlive {
 namespace AiEditor {
@@ -84,7 +85,7 @@ CompatibleEditPlan EditPlanExecutor::compatiblePlan(const std::shared_ptr<Timeli
     return result;
 }
 
-EditPlanExecutionResult EditPlanExecutor::apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan)
+EditPlanExecutionResult EditPlanExecutor::apply(const std::shared_ptr<TimelineItemModel> &timeline, const EditPlan &plan, const ProgressCallback &progress)
 {
     auto result = preflight(timeline, plan);
     if (!result.isValid()) {
@@ -94,22 +95,56 @@ EditPlanExecutionResult EditPlanExecutor::apply(const std::shared_ptr<TimelineIt
     QVector<EditOperation> operations = plan.operations;
     std::sort(operations.begin(), operations.end(),
               [](const EditOperation &left, const EditOperation &right) { return left.startFrame() > right.startFrame(); });
-    Fun undo = []() { return true; };
-    Fun redo = []() { return true; };
-    for (const EditOperation &operation : operations) {
+    QVector<Fun> undoSteps;
+    QVector<Fun> redoSteps;
+    undoSteps.reserve(operations.size());
+    redoSteps.reserve(operations.size());
+    const auto undoCompletedSteps = [&undoSteps]() {
+        bool restored = true;
+        for (auto it = undoSteps.rbegin(); it != undoSteps.rend(); ++it) {
+            const bool stepRestored = (*it)();
+            restored = stepRestored && restored;
+        }
+        return restored;
+    };
+    for (qsizetype index = 0; index < operations.size(); ++index) {
+        const EditOperation &operation = operations.at(index);
+        Fun operationUndo = []() { return true; };
+        Fun operationRedo = []() { return true; };
         QString error;
         if (operation.type == EditOperationType::RetimeRange) {
-            error = RetimeRangeExecutor::execute(timeline, operation.retimeRange, undo, redo).error;
+            error = RetimeRangeExecutor::execute(timeline, operation.retimeRange, operationUndo, operationRedo).error;
         } else {
-            error = MuteRangeExecutor::execute(timeline, operation.muteRange, undo, redo).error;
+            error = MuteRangeExecutor::execute(timeline, operation.muteRange, operationUndo, operationRedo).error;
         }
         if (!error.isEmpty()) {
-            const bool restored = undo();
+            const bool restored = undoCompletedSteps();
             Q_ASSERT(restored);
             result.error = error;
             return result;
         }
+        undoSteps.push_back(std::move(operationUndo));
+        redoSteps.push_back(std::move(operationRedo));
+        if (progress) {
+            progress(int(index + 1), int(operations.size()));
+        }
     }
+    Fun undo = [steps = std::move(undoSteps)]() mutable {
+        bool restored = true;
+        for (auto it = steps.rbegin(); it != steps.rend(); ++it) {
+            const bool stepRestored = (*it)();
+            restored = stepRestored && restored;
+        }
+        return restored;
+    };
+    Fun redo = [steps = std::move(redoSteps)]() mutable {
+        bool restored = true;
+        for (Fun &step : steps) {
+            const bool stepRestored = step();
+            restored = stepRestored && restored;
+        }
+        return restored;
+    };
     pCore->pushUndo(undo, redo, i18np("AI: Apply edit plan", "AI: Apply edit plan (%1 operations)", operations.size()));
     return result;
 }
