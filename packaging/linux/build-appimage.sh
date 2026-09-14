@@ -7,18 +7,26 @@ BUILD_DIR=${BUILD_DIR:-$SOURCE_DIR/build-linux}
 APPDIR=${APPDIR:-$SOURCE_DIR/dist/linux/AppDir}
 OUTPUT_DIR=${OUTPUT_DIR:-$SOURCE_DIR/dist/linux}
 JOBS=${JOBS:-$(nproc)}
+REUSE_BUILD=${REUSE_BUILD:-0}
+export APPIMAGE_EXTRACT_AND_RUN=1
 
-rm -rf -- "$BUILD_DIR" "$APPDIR"
+if [[ "$REUSE_BUILD" != 1 ]]; then
+  rm -rf -- "$BUILD_DIR" "$APPDIR"
+fi
 mkdir -p "$BUILD_DIR" "$APPDIR" "$OUTPUT_DIR"
 
-cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DCMAKE_INSTALL_PREFIX=/usr \
-  -DRELEASE_BUILD=ON \
-  -DBUILD_TESTING=OFF \
-  -DBUILD_QCH=OFF
-cmake --build "$BUILD_DIR" --parallel "$JOBS"
-DESTDIR="$APPDIR" cmake --install "$BUILD_DIR"
+if [[ "$REUSE_BUILD" != 1 ]]; then
+  cmake -S "$SOURCE_DIR" -B "$BUILD_DIR" -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DRELEASE_BUILD=ON \
+    -DBUILD_TESTING=OFF \
+    -DBUILD_QCH=OFF
+  cmake --build "$BUILD_DIR" --parallel "$JOBS"
+  DESTDIR="$APPDIR" cmake --install "$BUILD_DIR"
+else
+  test -x "$APPDIR/usr/bin/kdenlive"
+fi
 
 install -Dm755 /usr/bin/melt "$APPDIR/usr/bin/melt"
 install -Dm755 /usr/bin/ffmpeg "$APPDIR/usr/bin/ffmpeg"
