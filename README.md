@@ -61,8 +61,10 @@ Need help getting started? Join our Matrix channel `#kdenlive-dev:kde.org` - our
 This fork's review-first OpenRouter, OpenAI, and Anthropic integration is
 documented in [AI Editing Assistant](dev-docs/ai-editor.md).
 
-The Windows installer, auto-update launcher, and release process are documented
-in [Firawynix Windows packaging](packaging/windows/README-FIRAWYNIX.md). The
-interactive product website lives in [website](website/README.md).
+The Windows installer and updater are documented in
+[Firawynix Windows packaging](packaging/windows/README-FIRAWYNIX.md). The native
+Linux AppImage build is in [packaging/linux](packaging/linux/build-appimage.sh)
+and stores provider keys through the desktop Secret Service. The interactive
+product website lives in [website](website/README.md).
 
 Please get in touch with us before working on a task, either by commenting in the issue or through our Matrix channel.

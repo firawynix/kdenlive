@@ -7,6 +7,11 @@
 
 #include <KLocalizedString>
 
+#ifndef Q_OS_WIN
+#include <QProcess>
+#include <QStandardPaths>
+#endif
+
 #ifdef Q_OS_WIN
 // wincred.h depends on Windows base types and must follow windows.h with MinGW.
 // clang-format off
@@ -42,7 +47,7 @@ QString SecureCredentialStore::backendName()
 #ifdef Q_OS_WIN
     return QStringLiteral("Windows Credential Manager");
 #else
-    return QStringLiteral("environment variables");
+    return isAvailable() ? QStringLiteral("Secret Service") : QStringLiteral("environment variables");
 #endif
 }
 
@@ -51,7 +56,7 @@ bool SecureCredentialStore::isAvailable()
 #ifdef Q_OS_WIN
     return true;
 #else
-    return false;
+    return !QStandardPaths::findExecutable(QStringLiteral("secret-tool")).isEmpty();
 #endif
 }
 
@@ -73,8 +78,19 @@ QByteArray SecureCredentialStore::read(AiProvider provider, QString *error)
     CredFree(credential);
     return result;
 #else
-    Q_UNUSED(provider)
-    return {};
+    const QString executable = QStandardPaths::findExecutable(QStringLiteral("secret-tool"));
+    if (executable.isEmpty()) {
+        return {};
+    }
+    QProcess process;
+    process.start(executable, {QStringLiteral("lookup"), QStringLiteral("service"), credentialTarget(provider)});
+    if (!process.waitForFinished(5000) || process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (error && process.error() != QProcess::UnknownError) {
+            *error = i18n("Secret Service could not read the saved credential.");
+        }
+        return {};
+    }
+    return process.readAllStandardOutput().trimmed();
 #endif
 }
 
@@ -108,11 +124,33 @@ bool SecureCredentialStore::write(AiProvider provider, const QByteArray &apiKey,
     }
     return true;
 #else
-    Q_UNUSED(provider)
-    if (error) {
-        *error = i18n("Secure in-app credential storage is not available on this platform; use the provider environment variable.");
+    const QString executable = QStandardPaths::findExecutable(QStringLiteral("secret-tool"));
+    if (executable.isEmpty()) {
+        if (error) {
+            *error = i18n("Install secret-tool to save the credential securely, or use the provider environment variable.");
+        }
+        return false;
     }
-    return false;
+    QProcess process;
+    process.start(executable,
+                  {QStringLiteral("store"), QStringLiteral("--label=Firawynix - Kdenlive AI Editor"), QStringLiteral("service"),
+                   credentialTarget(provider)});
+    if (!process.waitForStarted(3000)) {
+        if (error) {
+            *error = i18n("Secret Service could not be started.");
+        }
+        return false;
+    }
+    process.write(cleaned);
+    process.write("\n");
+    process.closeWriteChannel();
+    if (!process.waitForFinished(10000) || process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (error) {
+            *error = i18n("Secret Service could not save the credential.");
+        }
+        return false;
+    }
+    return true;
 #endif
 }
 
@@ -131,11 +169,22 @@ bool SecureCredentialStore::remove(AiProvider provider, QString *error)
     }
     return false;
 #else
-    Q_UNUSED(provider)
-    if (error) {
-        *error = i18n("There is no saved in-app credential on this platform.");
+    const QString executable = QStandardPaths::findExecutable(QStringLiteral("secret-tool"));
+    if (executable.isEmpty()) {
+        if (error) {
+            *error = i18n("Secret Service is not available on this system.");
+        }
+        return false;
     }
-    return false;
+    QProcess process;
+    process.start(executable, {QStringLiteral("clear"), QStringLiteral("service"), credentialTarget(provider)});
+    if (!process.waitForFinished(5000) || process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (error) {
+            *error = i18n("Secret Service could not remove the saved credential.");
+        }
+        return false;
+    }
+    return true;
 #endif
 }
 
