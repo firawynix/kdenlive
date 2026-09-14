@@ -43,8 +43,9 @@ chmod +x "$TOOLS/linuxdeploy" "$TOOLS/linuxdeploy-plugin-qt"
 
 libraries=()
 while IFS= read -r library; do libraries+=(--library "$library"); done < <(find /usr/lib/mlt-7 /usr/lib/frei0r-1 -type f -name '*.so*' 2>/dev/null)
-for library in /usr/lib/*/libmovit.so.*; do
-  if [[ -f "$library" ]]; then libraries+=(--library "$library"); fi
+for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so; do
+  library=$(find /usr/lib -type f -name "$pattern.*" -print -quit 2>/dev/null || true)
+  if [[ -n "$library" ]]; then libraries+=(--library "$library"); fi
 done
 export EXTRA_QT_PLUGINS="iconengines;imageformats;platforminputcontexts;platforms;styles;wayland-decoration-client;wayland-graphics-integration-client;wayland-shell-integration"
 export QML_SOURCES_PATHS="$SOURCE_DIR/src"
