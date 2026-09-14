@@ -43,6 +43,9 @@ chmod +x "$TOOLS/linuxdeploy" "$TOOLS/linuxdeploy-plugin-qt"
 
 libraries=()
 while IFS= read -r library; do libraries+=(--library "$library"); done < <(find /usr/lib/mlt-7 /usr/lib/frei0r-1 -type f -name '*.so*' 2>/dev/null)
+for library in /usr/lib/*/libmovit.so.*; do
+  if [[ -f "$library" ]]; then libraries+=(--library "$library"); fi
+done
 export EXTRA_QT_PLUGINS="iconengines;imageformats;platforminputcontexts;platforms;styles;wayland-decoration-client;wayland-graphics-integration-client;wayland-shell-integration"
 export QML_SOURCES_PATHS="$SOURCE_DIR/src"
 export OUTPUT="$OUTPUT_DIR/Firawynix-Kdenlive-26.11.70-firaw.5-x86_64.AppImage"
