@@ -33,9 +33,13 @@ fi
 
 install -Dm755 /usr/bin/melt "$APPDIR/usr/bin/melt"
 install -Dm755 /usr/bin/ffmpeg "$APPDIR/usr/bin/ffmpeg"
-cp -a /usr/lib/mlt-7 "$APPDIR/usr/lib/"
-cp -a /usr/share/mlt-7 "$APPDIR/usr/share/"
-if [[ -d /usr/lib/frei0r-1 ]]; then cp -a /usr/lib/frei0r-1 "$APPDIR/usr/lib/"; fi
+MLT_LIB_DIR=${MLT_LIB_DIR:-$(find /usr/local/lib /usr/lib -type d -name mlt-7 -print -quit 2>/dev/null)}
+MLT_SHARE_DIR=${MLT_SHARE_DIR:-$(find /usr/local/share /usr/share -type d -name mlt-7 -print -quit 2>/dev/null)}
+FREI0R_LIB_DIR=${FREI0R_LIB_DIR:-$(find /usr/local/lib /usr/lib -type d -name frei0r-1 -print -quit 2>/dev/null || true)}
+test -n "$MLT_LIB_DIR" && test -n "$MLT_SHARE_DIR"
+cp -a "$MLT_LIB_DIR" "$APPDIR/usr/lib/"
+cp -a "$MLT_SHARE_DIR" "$APPDIR/usr/share/"
+if [[ -n "$FREI0R_LIB_DIR" ]]; then cp -a "$FREI0R_LIB_DIR" "$APPDIR/usr/lib/"; fi
 if command -v secret-tool >/dev/null; then install -Dm755 "$(command -v secret-tool)" "$APPDIR/usr/bin/secret-tool"; fi
 
 TOOLS="$SOURCE_DIR/.cache/linuxdeploy"
@@ -45,7 +49,7 @@ curl -fsSL -o "$TOOLS/linuxdeploy-plugin-qt" https://github.com/linuxdeploy/linu
 chmod +x "$TOOLS/linuxdeploy" "$TOOLS/linuxdeploy-plugin-qt"
 
 libraries=()
-while IFS= read -r library; do libraries+=(--library "$library"); done < <(find /usr/lib/mlt-7 /usr/lib/frei0r-1 -type f -name '*.so*' 2>/dev/null)
+while IFS= read -r library; do libraries+=(--library "$library"); done < <(find "$MLT_LIB_DIR" "$FREI0R_LIB_DIR" -type f -name '*.so*' 2>/dev/null)
 for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so; do
   library=$(find /usr/lib -type f -name "$pattern.*" -print -quit 2>/dev/null || true)
   if [[ -n "$library" ]]; then libraries+=(--library "$library"); fi
