@@ -13,7 +13,7 @@ apt-get update
 apt-get build-dep -y kdenlive mlt
 apt-get install -y --no-install-recommends \
   ca-certificates curl file git ninja-build libsecret-tools libflite1 libspeechd2 \
-  patchelf xdg-utils
+  patchelf qt6-svg-plugins xdg-utils
 
 rm -rf /tmp/mlt
 git clone --depth 1 --branch v7.38.0 --recurse-submodules \
