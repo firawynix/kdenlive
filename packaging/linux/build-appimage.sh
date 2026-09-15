@@ -31,8 +31,8 @@ else
   test -x "$APPDIR/usr/bin/kdenlive"
 fi
 
-install -Dm755 /usr/bin/melt "$APPDIR/usr/bin/melt"
-install -Dm755 /usr/bin/ffmpeg "$APPDIR/usr/bin/ffmpeg"
+install -Dm755 "$(command -v melt)" "$APPDIR/usr/bin/melt"
+install -Dm755 "$(command -v ffmpeg)" "$APPDIR/usr/bin/ffmpeg"
 MLT_LIB_DIR=${MLT_LIB_DIR:-$(find /usr/local/lib /usr/lib -type d -name mlt-7 -print -quit 2>/dev/null)}
 MLT_SHARE_DIR=${MLT_SHARE_DIR:-$(find /usr/local/share /usr/share -type d -name mlt-7 -print -quit 2>/dev/null)}
 FREI0R_LIB_DIR=${FREI0R_LIB_DIR:-$(find /usr/local/lib /usr/lib -type d -name frei0r-1 -print -quit 2>/dev/null || true)}
