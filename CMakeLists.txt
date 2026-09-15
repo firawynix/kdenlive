@@ -153,6 +153,14 @@ find_package(FFmpeg REQUIRED COMPONENTS
     AVUTIL
 )
 
+# Optional local visual analysis. The editor keeps building without OpenCV,
+# while Windows release packages include it and build the isolated helper.
+find_package(OpenCV 4.8 QUIET COMPONENTS core imgproc dnn)
+set_package_properties(OpenCV PROPERTIES
+    DESCRIPTION "Computer vision library"
+    URL "https://opencv.org"
+    PURPOSE "Local, private person detection for the AI editing assistant")
+
 # OpenTimelineIO
 
 # It is highly recommended to use OTIO 0.18.0 or newer!

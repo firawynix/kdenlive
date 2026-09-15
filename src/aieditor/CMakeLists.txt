@@ -9,10 +9,16 @@ set(kdenlive_SRCS
     aieditor/editplan.cpp
     aieditor/editplanexecutor.cpp
     aieditor/localtimelinetranscriber.cpp
+    aieditor/localvisionanalyzer.cpp
     aieditor/localaimanager.cpp
     aieditor/muterangeexecutor.cpp
+    aieditor/personretimeplanner.cpp
     aieditor/resourcebudget.cpp
     aieditor/retimerangeexecutor.cpp
     aieditor/securecredentialstore.cpp
     PARENT_SCOPE
 )
+
+if(OpenCV_FOUND)
+    add_subdirectory(visionhelper)
+endif()

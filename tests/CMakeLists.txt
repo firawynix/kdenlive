@@ -12,6 +12,7 @@ set(KdenliveTest_SOURCES
     aieditorplannertest.cpp
     aieditorsemanticexecutortest.cpp
     aieditorconfigurationtest.cpp
+    personretimeplannertest.cpp
     retimerangeexecutortest.cpp
     avcurvetest.cpp
     audiolevelstasktest.cpp

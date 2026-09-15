@@ -1,0 +1,14 @@
+---
+description: Adaptação obrigatória da IA local ao hardware de cada instalação
+alwaysApply: true
+---
+
+# IA local adaptada ao hardware
+
+- Toda função de IA local deve detectar CPU, memória e GPU no computador em que o programa está instalado.
+- Recomende e instale automaticamente o modelo, a precisão e o intervalo de amostragem adequados ao hardware detectado.
+- Respeite o limite de recursos escolhido pelo usuário; não presuma que a máquina de desenvolvimento representa outras instalações.
+- Sempre ofereça processamento por CPU quando a aceleração por GPU não existir ou falhar.
+- Downloads de modelos devem usar origem oficial fixada, validação SHA-256, progresso, estimativa de tempo, cancelamento e retomada/cache quando aplicável.
+- Não envie vídeo, áudio, transcrição ou quadros para serviços externos em um fluxo marcado como local.
+- Antes de publicar um instalador, teste pelo menos um perfil compatível com CPU e confirme que todos os executáveis e runtimes auxiliares estão no pacote.

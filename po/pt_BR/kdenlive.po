@@ -48849,3 +48849,141 @@ msgstr "Apoiar a Firawynix"
 
 msgid "Support Firawynix development"
 msgstr "Apoiar o desenvolvimento da Firawynix"
+
+msgid "Local visual analysis"
+msgstr "Análise visual local"
+
+msgid "Prepare visual analysis"
+msgstr "Preparar análise visual"
+
+msgid "Prepare / download person detector"
+msgstr "Preparar / baixar detector de pessoas"
+
+msgid "Local person detector is ready"
+msgstr "O detector local de pessoas está pronto"
+
+msgid "Update Firawynix - Kdenlive to enable visual analysis"
+msgstr "Atualize o Firawynix - Kdenlive para ativar a análise visual"
+
+msgid "Fast motion except when people appear"
+msgstr "Fast motion, exceto quando aparecerem pessoas"
+
+msgid "Detect people in the timeline locally"
+msgstr "Detectar pessoas localmente na linha do tempo"
+
+msgid "Needed for edits that keep normal speed when people appear. Frames are analyzed only on this computer."
+msgstr "Necessário para edições que mantêm a velocidade normal quando aparecem pessoas. Os quadros são analisados somente neste computador."
+
+msgid "For person-aware fast motion, include the desired final duration, for example: “reduce the video to 5 minutes”."
+msgstr "Para o fast motion que reconhece pessoas, informe a duração final desejada, por exemplo: “reduza o vídeo para 5 minutos”."
+
+msgid "Local person detection is not ready. Choose Prepare / download person detector first."
+msgstr "A detecção local de pessoas não está pronta. Primeiro escolha Preparar / baixar detector de pessoas."
+
+msgid "The requested visual target duration is no longer available. Generate the plan again."
+msgstr "A duração final solicitada para a edição visual não está mais disponível. Gere o plano novamente."
+
+msgid "Local visual plan ready using %1. %2 person intervals stay at normal speed; %3 safe clip segments will be accelerated. Review, then choose Apply."
+msgstr "Plano visual local pronto usando %1. %2 intervalos com pessoas permanecerão na velocidade normal; %3 segmentos seguros serão acelerados. Revise e escolha Aplicar."
+
+msgid "Local visual analysis cancelled."
+msgstr "Análise visual local cancelada."
+
+msgid "Detected for visual analysis: %1 CPU threads · %2 GiB memory · %3"
+msgstr "Detectado para análise visual: %1 threads de CPU · %2 GiB de memória · %3"
+
+msgid "compact INT8"
+msgstr "INT8 compacto"
+
+msgid "high-accuracy FP32"
+msgstr "FP32 de alta precisão"
+
+msgid "Recommended automatically: NanoDet %1 · %2 video samples per minute · OpenCV acceleration with safe CPU fallback."
+msgstr "Recomendado automaticamente: NanoDet %1 · %2 amostras de vídeo por minuto · aceleração OpenCV com alternativa segura pela CPU."
+
+msgid "The local visual analyzer is not included in this installation. Install the newest Firawynix - Kdenlive update."
+msgstr "O analisador visual local não está incluído nesta instalação. Instale a atualização mais recente do Firawynix - Kdenlive."
+
+msgid "The person detector is not downloaded yet. Choose Prepare visual analysis."
+msgstr "O detector de pessoas ainda não foi baixado. Escolha Preparar análise visual."
+
+msgid "Local person detection is ready. Video frames remain on this computer."
+msgstr "A detecção local de pessoas está pronta. Os quadros do vídeo permanecem neste computador."
+
+msgid "Downloading the local person detector"
+msgstr "Baixando o detector local de pessoas"
+
+msgid "Downloading the detector selected for this computer. No project media is uploaded."
+msgstr "Baixando o detector selecionado para este computador. Nenhuma mídia do projeto é enviada."
+
+msgid "The visual detector download failed: %1"
+msgstr "Falha ao baixar o detector visual: %1"
+
+msgid "The downloaded visual detector failed its security verification and was not installed."
+msgstr "O detector visual baixado falhou na verificação de segurança e não foi instalado."
+
+msgid "The verified visual detector could not be saved on this computer."
+msgstr "Não foi possível salvar o detector visual verificado neste computador."
+
+msgid "Local person detector ready"
+msgstr "Detector local de pessoas pronto"
+
+msgid "A local visual analysis is already running."
+msgstr "Uma análise visual local já está em execução."
+
+msgid "Local visual analysis is not ready. Choose Prepare visual analysis first."
+msgstr "A análise visual local não está pronta. Primeiro escolha Preparar análise visual."
+
+msgid "Could not create temporary files for local visual analysis."
+msgstr "Não foi possível criar os arquivos temporários da análise visual local."
+
+msgid "The current timeline could not be prepared for local visual analysis."
+msgstr "Não foi possível preparar a linha do tempo atual para a análise visual local."
+
+msgid "Saved local person detections restored. The video does not need to be analyzed again."
+msgstr "As detecções locais de pessoas foram restauradas. O vídeo não precisa ser analisado novamente."
+
+msgid "Local visual analysis could not be started: %1"
+msgstr "Não foi possível iniciar a análise visual local: %1"
+
+msgid "Analyzing the timeline locally for people"
+msgstr "Analisando pessoas localmente na linha do tempo"
+
+msgid "Detecting people locally. You can cancel; completed analysis is cached after it finishes."
+msgstr "Detectando pessoas localmente. Você pode cancelar; ao terminar, a análise concluída ficará salva."
+
+msgid "Local visual analysis failed: %1"
+msgstr "A análise visual local falhou: %1"
+
+msgid "Local person analysis complete"
+msgstr "Análise local de pessoas concluída"
+
+msgid "The local visual analysis result could not be read."
+msgstr "Não foi possível ler o resultado da análise visual local."
+
+msgid "The local visual analysis result is invalid."
+msgstr "O resultado da análise visual local é inválido."
+
+msgid "There is no editable fast-motion duration to distribute."
+msgstr "Não há duração editável de fast motion para distribuir."
+
+msgid "A visual edit segment is too short to accelerate safely."
+msgstr "Um segmento da edição visual é curto demais para ser acelerado com segurança."
+
+msgid "The requested final duration is too short while keeping detected people at normal speed."
+msgstr "A duração final solicitada é curta demais para manter as pessoas detectadas na velocidade normal."
+
+msgid "The requested duration could not be distributed across the safe clip segments."
+msgstr "Não foi possível distribuir a duração solicitada entre os segmentos seguros dos clipes."
+
+msgid "The visual edit target duration is invalid for the active timeline."
+msgstr "A duração final da edição visual é inválida para a linha do tempo ativa."
+
+msgid "No clip segment outside the detected-person ranges can be accelerated safely."
+msgstr "Nenhum segmento fora dos intervalos com pessoas detectadas pode ser acelerado com segurança."
+
+msgid "The visual analysis produced too many edit segments. Increase the visual sampling interval and try again."
+msgstr "A análise visual produziu segmentos demais. Aumente o intervalo de amostragem visual e tente novamente."
+
+msgid "Run visual and transcript analysis as separate plans for now. Apply the person-aware fast motion first, then request the audio cleanup."
+msgstr "Por enquanto, execute a análise visual e a transcrição em planos separados. Aplique primeiro o fast motion que preserva pessoas e depois solicite a limpeza do áudio."

@@ -29,6 +29,8 @@ namespace AiEditor {
 
 class LocalTimelineTranscriber;
 class LocalAiManager;
+class LocalVisionAnalyzer;
+struct LocalVisionResult;
 
 class AssistantDock : public QWidget
 {
@@ -46,6 +48,7 @@ private:
     void removeCredential();
     void testCredential();
     void updateLocalSetupButton();
+    void updateVisualSetup();
     void updatePerformanceSummary();
     void loadSavedPrompts();
     void savePrompt();
@@ -57,6 +60,7 @@ private:
     void handlePromptSuggestions(const QVector<PromptSuggestion> &suggestions);
     void finishPromptSuggestions(const QVector<PromptSuggestion> &suggestions);
     void generatePlan();
+    void handleVisualAnalysis(const LocalVisionResult &result);
     void requestProviderPlan(const QString &transcript = QString(), const QString &timelineFingerprint = QString());
     void requestNextTranscriptChunk();
     void retryWithSmallerTranscriptChunks(const QString &message);
@@ -79,6 +83,7 @@ private:
     AiProviderClient *m_client{nullptr};
     LocalTimelineTranscriber *m_transcriber{nullptr};
     LocalAiManager *m_localAi{nullptr};
+    LocalVisionAnalyzer *m_localVision{nullptr};
     QComboBox *m_provider{nullptr};
     QLineEdit *m_model{nullptr};
     QLabel *m_keyStatus{nullptr};
@@ -93,6 +98,10 @@ private:
     QLabel *m_localHardware{nullptr};
     QLabel *m_localStatus{nullptr};
     QPushButton *m_localSetup{nullptr};
+    QGroupBox *m_visualGroup{nullptr};
+    QLabel *m_visualHardware{nullptr};
+    QLabel *m_visualStatus{nullptr};
+    QPushButton *m_visualSetup{nullptr};
     QSlider *m_performance{nullptr};
     QLabel *m_performanceSummary{nullptr};
     QSpinBox *m_cpuThreads{nullptr};
@@ -102,6 +111,7 @@ private:
     QPushButton *m_deletePrompt{nullptr};
     QPushButton *m_suggestPrompts{nullptr};
     QCheckBox *m_analyzeAudio{nullptr};
+    QCheckBox *m_analyzeVideo{nullptr};
     QPlainTextEdit *m_prompt{nullptr};
     QPushButton *m_generate{nullptr};
     QPushButton *m_cancel{nullptr};
@@ -127,6 +137,7 @@ private:
     int m_appliedRequestNumber{0};
     QElapsedTimer m_providerTimer;
     int m_providerStartChunk{0};
+    int m_pendingVisualTargetFrames{-1};
     enum class TranscriptionPurpose { EditPlan, PromptSuggestions };
     TranscriptionPurpose m_transcriptionPurpose{TranscriptionPurpose::EditPlan};
     QVector<TranscriptChunk> m_suggestionChunks;

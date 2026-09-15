@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "26.11.70-firaw.4",
+    [string]$Version = "26.11.70-firaw.5",
     [string]$BuildDirectory = "C:\_\3377f5a\build",
     [string]$CraftRoot = "C:\CraftRoot",
     [string]$PayloadArchive = ""
@@ -12,11 +12,15 @@ $stage = Join-Path $output "stage"
 $launcherProject = Join-Path $PSScriptRoot "launcher\FirawynixKdenliveLauncher.csproj"
 $launcherOutput = Join-Path $output "launcher"
 $editor = Join-Path $BuildDirectory "bin\firawynix-kdenlive.exe"
+$visionHelper = Join-Path $BuildDirectory "bin\firawynix-kdenlive-ai-vision.exe"
 $translation = Join-Path $BuildDirectory "locale\pt_BR\LC_MESSAGES\kdenlive.mo"
 $splashQml = Join-Path $CraftRoot "qml\org\kde\kdenlive\Splash.qml"
 
 if (-not (Test-Path -LiteralPath $editor)) {
     throw "Compile o Firawynix - Kdenlive antes de criar o instalador: $editor"
+}
+if (-not (Test-Path -LiteralPath $visionHelper)) {
+    throw "Compile o analisador visual local antes de criar o instalador: $visionHelper"
 }
 if (-not (Test-Path -LiteralPath $splashQml)) {
     throw "A tela inicial instalada pelo build não foi encontrada: $splashQml"
@@ -82,7 +86,10 @@ if ($nestedRoot -and -not (Test-Path (Join-Path $stage "bin"))) {
 
 $runtimeChecks = @(
     @{ Pattern = "avcodec-*.dll"; Label = "FFmpeg (avcodec)" },
-    @{ Pattern = "Qt6Core.dll"; Label = "Qt 6 Core" }
+    @{ Pattern = "Qt6Core.dll"; Label = "Qt 6 Core" },
+    @{ Pattern = "libopencv_core*.dll"; Label = "OpenCV Core" },
+    @{ Pattern = "libopencv_dnn*.dll"; Label = "OpenCV DNN" },
+    @{ Pattern = "libopencv_imgproc*.dll"; Label = "OpenCV Image Processing" }
 )
 foreach ($runtimeCheck in $runtimeChecks) {
     $runtimeMatch = Get-ChildItem -LiteralPath (Join-Path $stage "bin") -Filter $runtimeCheck.Pattern -File -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -93,6 +100,7 @@ foreach ($runtimeCheck in $runtimeChecks) {
 
 New-Item -ItemType Directory -Path (Join-Path $stage "bin\data\locale\pt_BR\LC_MESSAGES") -Force | Out-Null
 Copy-Item -LiteralPath $editor -Destination (Join-Path $stage "bin\firawynix-kdenlive.exe") -Force
+Copy-Item -LiteralPath $visionHelper -Destination (Join-Path $stage "bin\firawynix-kdenlive-ai-vision.exe") -Force
 Copy-Item -LiteralPath $translation -Destination (Join-Path $stage "bin\data\locale\pt_BR\LC_MESSAGES\kdenlive.mo") -Force
 $splashDestination = Get-ChildItem -LiteralPath $stage -Recurse -File -Filter "Splash.qml" |
     Where-Object { $_.FullName -match "[\\/]org[\\/]kde[\\/]kdenlive[\\/]Splash\.qml$" } |

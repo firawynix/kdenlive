@@ -14,9 +14,9 @@ updated Brazilian Portuguese catalog.
 `packaging/windows/build-installer.ps1` publishes the self-contained .NET 8
 launcher, stages the KDE Craft `PortablePackager` output (not the application-only
 `SevenZipPackager` output), replaces the upstream
-editor binary, PT-BR catalog, and installed Firawynix splash QML with the current
+editor binary, local visual-analysis helper, PT-BR catalog, and installed Firawynix splash QML with the current
 build, then invokes Inno Setup. The script fails closed unless the staged `bin`
-directory contains both the FFmpeg avcodec runtime and Qt6Core.
+directory contains FFmpeg avcodec, Qt6Core, and the OpenCV Core/DNN/Image Processing runtimes.
 Generated stage, launcher, installer, checksum, and update metadata remain local
 build artifacts under `dist/windows`.
 

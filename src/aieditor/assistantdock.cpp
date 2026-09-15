@@ -10,8 +10,10 @@
 #include "kdenlivesettings.h"
 #include "localaimanager.hpp"
 #include "localtimelinetranscriber.hpp"
+#include "localvisionanalyzer.hpp"
 #include "mainwindow.h"
 #include "resourcebudget.hpp"
+#include "personretimeplanner.hpp"
 #include "securecredentialstore.hpp"
 #include "timeline2/view/timelinewidget.h"
 
@@ -51,6 +53,7 @@ namespace AiEditor {
 namespace {
 constexpr int PromptKindRole = Qt::UserRole + 1;
 constexpr int PromptNeedsTranscriptRole = Qt::UserRole + 2;
+constexpr int PromptNeedsVisionRole = Qt::UserRole + 3;
 enum PromptKind { BuiltInPrompt = 0, SavedPrompt = 1, SuggestedPrompt = 2 };
 } // namespace
 
@@ -59,6 +62,7 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     , m_mainWindow(mainWindow)
     , m_client(new AiProviderClient(this))
     , m_localAi(new LocalAiManager(this))
+    , m_localVision(new LocalVisionAnalyzer(this))
 {
     auto *layout = new QVBoxLayout(this);
     auto *providerForm = new QFormLayout;
@@ -115,6 +119,18 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     localAiLayout->addWidget(m_localSetup);
     layout->addWidget(m_localAiGroup);
 
+    m_visualGroup = new QGroupBox(i18n("Local visual analysis"), this);
+    auto *visualLayout = new QVBoxLayout(m_visualGroup);
+    m_visualHardware = new QLabel(m_visualGroup);
+    m_visualHardware->setWordWrap(true);
+    m_visualStatus = new QLabel(m_visualGroup);
+    m_visualStatus->setWordWrap(true);
+    m_visualSetup = new QPushButton(i18n("Prepare visual analysis"), m_visualGroup);
+    visualLayout->addWidget(m_visualHardware);
+    visualLayout->addWidget(m_visualStatus);
+    visualLayout->addWidget(m_visualSetup);
+    layout->addWidget(m_visualGroup);
+
     auto *performanceGroup = new QGroupBox(i18n("Performance"), this);
     auto *performanceLayout = new QFormLayout(performanceGroup);
     m_performance = new QSlider(Qt::Horizontal, performanceGroup);
@@ -160,9 +176,12 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
                                      "Preserve o tom do áudio e não altere trechos com fala."));
     m_preset->addItem(i18n("Exact-duration speed change"),
                       QStringLiteral("Do tempo 00:00:00 até 00:00:10, acelere para que dure exatamente 2 segundos e preserve o tom do áudio."));
+    m_preset->addItem(i18n("Fast motion except when people appear"),
+                      QStringLiteral("Reduza o vídeo para 5 minutos usando fast motion, mas mantenha a velocidade normal quando detectar pessoas."));
     for (int index = 0; index < m_preset->count(); ++index) {
         m_preset->setItemData(index, BuiltInPrompt, PromptKindRole);
         m_preset->setItemData(index, index >= 1 && index <= 3, PromptNeedsTranscriptRole);
+        m_preset->setItemData(index, index == 5, PromptNeedsVisionRole);
     }
     presetForm->addRow(i18n("Ready prompt:"), m_preset);
     layout->addLayout(presetForm);
@@ -185,6 +204,10 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     m_analyzeAudio = new QCheckBox(i18n("Analyze timeline audio locally with Whisper"), this);
     m_analyzeAudio->setToolTip(i18n("Needed for requests about dialogue topics or silent gaps. The media stays on this computer."));
     layout->addWidget(m_analyzeAudio);
+
+    m_analyzeVideo = new QCheckBox(i18n("Detect people in the timeline locally"), this);
+    m_analyzeVideo->setToolTip(i18n("Needed for edits that keep normal speed when people appear. Frames are analyzed only on this computer."));
+    layout->addWidget(m_analyzeVideo);
 
     auto *requestButtons = new QHBoxLayout;
     m_generate = new QPushButton(i18n("Generate plan"), this);
@@ -258,6 +281,7 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
             m_prompt->setPlainText(prompt);
         }
         m_analyzeAudio->setChecked(m_preset->itemData(index, PromptNeedsTranscriptRole).toBool());
+        m_analyzeVideo->setChecked(m_preset->itemData(index, PromptNeedsVisionRole).toBool());
         updatePromptButtons();
     });
     connect(m_savePrompt, &QPushButton::clicked, this, &AssistantDock::savePrompt);
@@ -271,10 +295,12 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
         }
     });
     connect(m_localSetup, &QPushButton::clicked, this, [this]() { m_localAi->installAndPrepare(m_model->text()); });
+    connect(m_visualSetup, &QPushButton::clicked, m_localVision, &LocalVisionAnalyzer::prepare);
     connect(m_cancel, &QPushButton::clicked, this, [this]() {
         m_client->cancel();
         m_transcriber->cancel();
         m_localAi->cancel();
+        m_localVision->cancel();
     });
     connect(m_apply, &QPushButton::clicked, this, &AssistantDock::applyPlan);
     connect(m_discard, &QPushButton::clicked, this, &AssistantDock::discardPlan);
@@ -318,6 +344,22 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
         }
     });
 
+    connect(m_localVision, &LocalVisionAnalyzer::busyChanged, this, &AssistantDock::setBusy);
+    connect(m_localVision, &LocalVisionAnalyzer::progressChanged, this, &AssistantDock::showProgress);
+    connect(m_localVision, &LocalVisionAnalyzer::readyChanged, this, [this](bool) { updateVisualSetup(); });
+    connect(m_localVision, &LocalVisionAnalyzer::statusChanged, this, [this](const QString &message, bool error) {
+        m_visualStatus->setText(error ? i18n("Error: %1", message) : message);
+        setStatus(message, error);
+        if (!m_localVision->isBusy()) {
+            hideProgress();
+        }
+    });
+    connect(m_localVision, &LocalVisionAnalyzer::cancelled, this, [this]() {
+        hideProgress();
+        setStatus(i18n("Local visual analysis cancelled."));
+    });
+    connect(m_localVision, &LocalVisionAnalyzer::analysisReady, this, &AssistantDock::handleVisualAnalysis);
+
     m_transcriber = new LocalTimelineTranscriber(this);
     connect(m_transcriber, &LocalTimelineTranscriber::busyChanged, this, &AssistantDock::setBusy);
     connect(m_transcriber, &LocalTimelineTranscriber::statusChanged, this, [this](const QString &message) { setStatus(message); });
@@ -343,6 +385,8 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     loadSavedPrompts();
     updateProvider();
     updatePerformanceSummary();
+    updateVisualSetup();
+    m_localVision->refresh();
     refreshAppliedEditControls();
 }
 
@@ -403,6 +447,22 @@ void AssistantDock::updateLocalSetupButton()
     } else {
         m_localSetup->setText(i18n("Download and prepare %1 (%2)", model, LocalAiManager::approximateDownloadSize(model)));
     }
+}
+
+void AssistantDock::updateVisualSetup()
+{
+    if (!m_localVision || !m_visualHardware || !m_visualSetup) {
+        return;
+    }
+    m_visualHardware->setText(i18n("%1\n%2", m_localVision->hardwareSummary(), m_localVision->recommendationSummary()));
+    if (m_localVision->helperExecutable().isEmpty()) {
+        m_visualSetup->setText(i18n("Update Firawynix - Kdenlive to enable visual analysis"));
+    } else if (m_localVision->isReady()) {
+        m_visualSetup->setText(i18n("Local person detector is ready"));
+    } else {
+        m_visualSetup->setText(i18n("Prepare / download person detector"));
+    }
+    m_visualSetup->setEnabled(!m_localVision->isBusy());
 }
 
 void AssistantDock::updateCredentialStatus()
@@ -476,6 +536,9 @@ void AssistantDock::updatePerformanceSummary()
     const double memoryGiB = double(ResourceBudget::totalMemoryBytes()) * double(percent) / 100.0 / double(1024ULL * 1024ULL * 1024ULL);
     m_performanceSummary->setText(i18n("%1% best-effort budget · %2 of %3 CPU threads · up to %4 GiB memory", percent, threads,
                                        ResourceBudget::logicalCpuCount(), QString::number(memoryGiB, 'f', 1)));
+    if (m_localVision && m_visualHardware) {
+        m_visualHardware->setText(i18n("%1\n%2", m_localVision->hardwareSummary(), m_localVision->recommendationSummary()));
+    }
 }
 
 void AssistantDock::loadSavedPrompts()
@@ -489,6 +552,7 @@ void AssistantDock::loadSavedPrompts()
     const QStringList names = group.readEntry(QStringLiteral("Names"), QStringList());
     const QStringList prompts = group.readEntry(QStringLiteral("Prompts"), QStringList());
     const QList<int> analyzeAudio = group.readEntry(QStringLiteral("AnalyzeAudio"), QList<int>());
+    const QList<int> analyzeVisual = group.readEntry(QStringLiteral("AnalyzeVisual"), QList<int>());
     const int count = qMin(names.size(), prompts.size());
     for (int index = 0; index < count; ++index) {
         if (names.at(index).trimmed().isEmpty() || prompts.at(index).trimmed().isEmpty()) {
@@ -498,6 +562,7 @@ void AssistantDock::loadSavedPrompts()
         const int item = m_preset->count() - 1;
         m_preset->setItemData(item, SavedPrompt, PromptKindRole);
         m_preset->setItemData(item, index < analyzeAudio.size() ? analyzeAudio.at(index) != 0 : true, PromptNeedsTranscriptRole);
+        m_preset->setItemData(item, index < analyzeVisual.size() ? analyzeVisual.at(index) != 0 : false, PromptNeedsVisionRole);
     }
     updatePromptButtons();
 }
@@ -525,11 +590,15 @@ void AssistantDock::savePrompt()
     QStringList names = group.readEntry(QStringLiteral("Names"), QStringList());
     QStringList prompts = group.readEntry(QStringLiteral("Prompts"), QStringList());
     QList<int> analyzeAudio = group.readEntry(QStringLiteral("AnalyzeAudio"), QList<int>());
+    QList<int> analyzeVisual = group.readEntry(QStringLiteral("AnalyzeVisual"), QList<int>());
     while (prompts.size() < names.size()) {
         prompts << QString();
     }
     while (analyzeAudio.size() < names.size()) {
         analyzeAudio << 1;
+    }
+    while (analyzeVisual.size() < names.size()) {
+        analyzeVisual << 0;
     }
     int savedIndex = -1;
     for (int index = 0; index < names.size(); ++index) {
@@ -542,18 +611,21 @@ void AssistantDock::savePrompt()
         names << name;
         prompts << prompt;
         analyzeAudio << (m_analyzeAudio->isChecked() ? 1 : 0);
+        analyzeVisual << (m_analyzeVideo->isChecked() ? 1 : 0);
     } else {
         names[savedIndex] = name;
         prompts[savedIndex] = prompt;
         analyzeAudio[savedIndex] = m_analyzeAudio->isChecked() ? 1 : 0;
+        analyzeVisual[savedIndex] = m_analyzeVideo->isChecked() ? 1 : 0;
     }
     group.writeEntry(QStringLiteral("Names"), names);
     group.writeEntry(QStringLiteral("Prompts"), prompts);
     group.writeEntry(QStringLiteral("AnalyzeAudio"), analyzeAudio);
+    group.writeEntry(QStringLiteral("AnalyzeVisual"), analyzeVisual);
     group.sync();
     loadSavedPrompts();
-    for (int index = 4; index < m_preset->count(); ++index) {
-        if (m_preset->itemText(index).compare(name, Qt::CaseInsensitive) == 0) {
+    for (int index = 0; index < m_preset->count(); ++index) {
+        if (m_preset->itemData(index, PromptKindRole).toInt() == SavedPrompt && m_preset->itemText(index).compare(name, Qt::CaseInsensitive) == 0) {
             m_preset->setCurrentIndex(index);
             break;
         }
@@ -574,6 +646,7 @@ void AssistantDock::deletePrompt()
     QStringList names = group.readEntry(QStringLiteral("Names"), QStringList());
     QStringList prompts = group.readEntry(QStringLiteral("Prompts"), QStringList());
     QList<int> analyzeAudio = group.readEntry(QStringLiteral("AnalyzeAudio"), QList<int>());
+    QList<int> analyzeVisual = group.readEntry(QStringLiteral("AnalyzeVisual"), QList<int>());
     for (int index = names.size() - 1; index >= 0; --index) {
         if (names.at(index).compare(name, Qt::CaseInsensitive) == 0) {
             names.removeAt(index);
@@ -583,11 +656,15 @@ void AssistantDock::deletePrompt()
             if (index < analyzeAudio.size()) {
                 analyzeAudio.removeAt(index);
             }
+            if (index < analyzeVisual.size()) {
+                analyzeVisual.removeAt(index);
+            }
         }
     }
     group.writeEntry(QStringLiteral("Names"), names);
     group.writeEntry(QStringLiteral("Prompts"), prompts);
     group.writeEntry(QStringLiteral("AnalyzeAudio"), analyzeAudio);
+    group.writeEntry(QStringLiteral("AnalyzeVisual"), analyzeVisual);
     group.sync();
     loadSavedPrompts();
     m_preset->setCurrentIndex(0);
@@ -719,6 +796,35 @@ void AssistantDock::finishPromptSuggestions(const QVector<PromptSuggestion> &sug
 void AssistantDock::generatePlan()
 {
     m_transcriptionPurpose = TranscriptionPurpose::EditPlan;
+    if (m_prompt->toPlainText().trimmed().isEmpty()) {
+        setStatus(i18n("Describe the edit you want before sending the request."), true);
+        return;
+    }
+    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
+    if (!timelineWidget || !timelineWidget->model()) {
+        setStatus(i18n("Open a project timeline before requesting an edit."), true);
+        return;
+    }
+    if (m_analyzeVideo->isChecked() && m_analyzeAudio->isChecked()) {
+        setStatus(i18n("Run visual and transcript analysis as separate plans for now. Apply the person-aware fast motion first, then request the audio cleanup."), true);
+        return;
+    }
+    resetPlanPreview();
+    m_pendingPrompt = m_prompt->toPlainText();
+    if (m_analyzeVideo->isChecked()) {
+        m_pendingVisualTargetFrames = PersonRetimePlanner::targetDurationFrames(m_pendingPrompt, pCore->getCurrentFps());
+        if (m_pendingVisualTargetFrames < 1) {
+            setStatus(i18n("For person-aware fast motion, include the desired final duration, for example: “reduce the video to 5 minutes”."), true);
+            return;
+        }
+        if (!m_localVision->isReady()) {
+            setStatus(i18n("Local person detection is not ready. Choose Prepare / download person detector first."), true);
+            return;
+        }
+        m_localVision->start(timelineWidget->model(), pCore->getCurrentFps());
+        return;
+    }
+
     updateCredentialStatus();
     if (m_model->text().trimmed().isEmpty()) {
         setStatus(i18n("Choose a model before sending the request."), true);
@@ -732,17 +838,6 @@ void AssistantDock::generatePlan()
         setStatus(i18n("Local AI is not ready. Choose Prepare / download local model first."), true);
         return;
     }
-    if (m_prompt->toPlainText().trimmed().isEmpty()) {
-        setStatus(i18n("Describe the edit you want before sending the request."), true);
-        return;
-    }
-    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
-    if (!timelineWidget || !timelineWidget->model()) {
-        setStatus(i18n("Open a project timeline before requesting an edit."), true);
-        return;
-    }
-    resetPlanPreview();
-    m_pendingPrompt = m_prompt->toPlainText();
     if (m_analyzeAudio->isChecked()) {
         const int timelineFrames = timelineWidget->model()->duration();
         const double fps = pCore->getCurrentFps();
@@ -755,6 +850,49 @@ void AssistantDock::generatePlan()
         m_transcriber->start(timelineWidget->model(), pCore->getCurrentFps());
     } else {
         requestProviderPlan();
+    }
+}
+
+void AssistantDock::handleVisualAnalysis(const LocalVisionResult &result)
+{
+    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
+    if (!timelineWidget || !timelineWidget->model()) {
+        hideProgress();
+        setStatus(i18n("The active timeline is no longer available."), true);
+        return;
+    }
+    if (m_pendingVisualTargetFrames < 1) {
+        hideProgress();
+        setStatus(i18n("The requested visual target duration is no longer available. Generate the plan again."), true);
+        return;
+    }
+    const double fps = pCore->getCurrentFps();
+    const int timelineFrames = timelineWidget->model()->duration();
+    const QVector<VisualFrameRange> personRanges = PersonRetimePlanner::normalizeDetections(
+        result.personFrames, result.sampleStepFrames, qMax(1, int(qRound(fps))), qMax(1, int(qRound(fps * 2.0))), timelineFrames);
+    const PersonRetimePlanResult planned = PersonRetimePlanner::build(timelineWidget->model(), personRanges, m_pendingVisualTargetFrames);
+    m_pendingVisualTargetFrames = -1;
+    if (!planned.isValid()) {
+        hideProgress();
+        setStatus(planned.error, true);
+        return;
+    }
+
+    QJsonArray operations;
+    for (const EditOperation &edit : planned.plan.operations) {
+        const RetimeRangeOperation &operation = edit.retimeRange;
+        operations.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("retime_range")},
+                                      {QStringLiteral("start_frame"), operation.startFrame},
+                                      {QStringLiteral("end_frame"), operation.endFrame},
+                                      {QStringLiteral("target_duration_frames"), operation.targetDurationFrames},
+                                      {QStringLiteral("preserve_pitch"), operation.preservePitch}});
+    }
+    const QByteArray json = QJsonDocument(QJsonObject{{QStringLiteral("version"), 1}, {QStringLiteral("operations"), operations}})
+                                .toJson(QJsonDocument::Compact);
+    showPlan(json);
+    if (m_hasPlan) {
+        setStatus(i18n("Local visual plan ready using %1. %2 person intervals stay at normal speed; %3 safe clip segments will be accelerated. Review, then choose Apply.",
+                       result.backend, personRanges.size(), planned.plan.operations.size()));
     }
 }
 
@@ -1168,7 +1306,8 @@ void AssistantDock::setStatus(const QString &message, bool error)
 void AssistantDock::setBusy(bool busy)
 {
     Q_UNUSED(busy)
-    const bool anyBusy = m_applyInProgress || m_client->isBusy() || (m_transcriber && m_transcriber->isBusy()) || (m_localAi && m_localAi->isBusy());
+    const bool anyBusy = m_applyInProgress || m_client->isBusy() || (m_transcriber && m_transcriber->isBusy()) || (m_localAi && m_localAi->isBusy()) ||
+                         (m_localVision && m_localVision->isBusy());
     m_generate->setEnabled(!anyBusy);
     m_provider->setEnabled(!anyBusy);
     m_model->setEnabled(!anyBusy);
@@ -1178,6 +1317,7 @@ void AssistantDock::setBusy(bool busy)
     m_testKey->setEnabled(!anyBusy && !local);
     m_removeKey->setEnabled(!anyBusy && !local && !SecureCredentialStore::read(selectedProvider()).isEmpty());
     m_localSetup->setEnabled(!anyBusy && local);
+    m_visualSetup->setEnabled(!anyBusy);
     m_performance->setEnabled(!anyBusy);
     m_cpuThreads->setEnabled(!anyBusy);
     m_processingDevice->setEnabled(!anyBusy);
@@ -1187,6 +1327,7 @@ void AssistantDock::setBusy(bool busy)
     m_deletePrompt->setEnabled(!anyBusy && m_preset->currentData(PromptKindRole).toInt() == SavedPrompt);
     m_suggestPrompts->setEnabled(!anyBusy);
     m_analyzeAudio->setEnabled(!anyBusy);
+    m_analyzeVideo->setEnabled(!anyBusy);
     m_cancel->setEnabled(anyBusy && !m_applyInProgress);
     m_appliedEdits->setEnabled(!anyBusy && m_appliedEdits->count() > 0);
     m_toggleAppliedEdit->setEnabled(!anyBusy && m_appliedEdits->currentIndex() >= 0);
