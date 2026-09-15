@@ -59,11 +59,20 @@ TEST_CASE("Local AI connection check stays on loopback and needs no key", "[AIEd
 TEST_CASE("Local AI model recommendation scales with system memory", "[AIEditor][Configuration][Local]")
 {
     constexpr quint64 GiB = 1024ULL * 1024ULL * 1024ULL;
-    REQUIRE(LocalAiManager::recommendedModelForMemory(8 * GiB) == QStringLiteral("qwen3:4b"));
-    REQUIRE(LocalAiManager::recommendedModelForMemory(16 * GiB) == QStringLiteral("qwen3:8b"));
-    REQUIRE(LocalAiManager::recommendedModelForMemory(32 * GiB) == QStringLiteral("qwen3:14b"));
-    REQUIRE(LocalAiManager::recommendedModelForMemory(64 * GiB) == QStringLiteral("qwen3:30b"));
-    REQUIRE(LocalAiManager::recommendedModelForHardware({32, 128 * GiB, QStringLiteral("AMD Radeon RX 9060 XT"), 16 * GiB}) == QStringLiteral("qwen3:14b"));
-    REQUIRE(LocalAiManager::recommendedModelForHardware({8, 8 * GiB, QStringLiteral("NVIDIA GeForce GTX"), 4 * GiB}) == QStringLiteral("qwen3:4b"));
-    REQUIRE(LocalAiManager::recommendedModelForHardware({16, 64 * GiB, QStringLiteral("Integrated graphics"), 0}) == QStringLiteral("qwen3:14b"));
+    REQUIRE(LocalAiManager::recommendedModelForMemory(8 * GiB) == QStringLiteral("qwen3.5:2b"));
+    REQUIRE(LocalAiManager::recommendedModelForMemory(16 * GiB) == QStringLiteral("qwen3.5:4b"));
+    REQUIRE(LocalAiManager::recommendedModelForMemory(32 * GiB) == QStringLiteral("qwen3.5:9b"));
+    REQUIRE(LocalAiManager::recommendedModelForMemory(64 * GiB) == QStringLiteral("qwen3.5:27b"));
+    REQUIRE(LocalAiManager::recommendedModelForHardware({32, 128 * GiB, QStringLiteral("AMD Radeon RX 9060 XT"), 16 * GiB}) == QStringLiteral("qwen3.5:9b"));
+    REQUIRE(LocalAiManager::recommendedModelForHardware({8, 8 * GiB, QStringLiteral("NVIDIA GeForce GTX"), 4 * GiB}) == QStringLiteral("qwen3.5:2b"));
+    REQUIRE(LocalAiManager::recommendedModelForHardware({16, 64 * GiB, QStringLiteral("Integrated graphics"), 0}) == QStringLiteral("qwen3.5:9b"));
+}
+
+TEST_CASE("Local AI catalog includes supported and installed model names", "[AIEditor][Configuration][Local]")
+{
+    REQUIRE(LocalAiManager::modelCatalog().contains(QStringLiteral("qwen3.5:4b")));
+    REQUIRE(LocalAiManager::modelCatalog().contains(QStringLiteral("qwen3.5:122b")));
+    const auto installed = LocalAiManager::modelsFromTagsResponse(
+        QByteArrayLiteral(R"({"models":[{"name":"qwen3:14b"},{"model":"custom-editor:latest"},{"name":"qwen3:14b"}]})"));
+    REQUIRE(installed == QStringList{QStringLiteral("custom-editor:latest"), QStringLiteral("qwen3:14b")});
 }

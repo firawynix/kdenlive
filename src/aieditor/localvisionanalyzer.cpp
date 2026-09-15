@@ -54,6 +54,16 @@ QString modelUrl(const QString &file)
 {
     return QString::fromLatin1(ModelRoot) + file;
 }
+
+bool modelFileIsVerified(const QString &path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    const QString actual = QString::fromLatin1(QCryptographicHash::hash(file.readAll(), QCryptographicHash::Sha256).toHex());
+    return actual == modelHash(QFileInfo(path).fileName());
+}
 } // namespace
 
 LocalVisionAnalyzer::LocalVisionAnalyzer(QObject *parent)
@@ -136,7 +146,7 @@ void LocalVisionAnalyzer::refresh()
     } else if (!QFileInfo::exists(modelPath())) {
         Q_EMIT statusChanged(i18n("The person detector is not downloaded yet. Choose Prepare visual analysis."), false);
     } else {
-        Q_EMIT statusChanged(i18n("Local person detection is ready. Video frames remain on this computer."), false);
+        Q_EMIT statusChanged(i18n("The best compatible local person detector is installed. Choose Check for updates to verify it at any time."), false);
     }
 }
 
@@ -149,8 +159,10 @@ void LocalVisionAnalyzer::prepare()
         refresh();
         return;
     }
-    if (QFileInfo::exists(modelPath())) {
-        refresh();
+    if (QFileInfo::exists(modelPath()) && modelFileIsVerified(modelPath())) {
+        Q_EMIT progressChanged(100, 0, i18n("Local person detector verified"));
+        Q_EMIT readyChanged(true);
+        Q_EMIT statusChanged(i18n("The best compatible local person detector is installed, verified, and ready."), false);
         return;
     }
     QDir().mkpath(QFileInfo(modelPath()).absolutePath());

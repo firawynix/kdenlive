@@ -41,13 +41,16 @@ public:
 
 private:
     AiProvider selectedProvider() const;
+    QString selectedModel() const;
     QByteArray selectedApiKey() const;
     void updateProvider();
+    void populateLocalModels(const QString &preferred = QString());
     void updateCredentialStatus();
     void saveCredential();
     void removeCredential();
     void testCredential();
     void updateLocalSetupButton();
+    void updateAudioSetup();
     void updateVisualSetup();
     void updatePerformanceSummary();
     void loadSavedPrompts();
@@ -85,7 +88,8 @@ private:
     LocalAiManager *m_localAi{nullptr};
     LocalVisionAnalyzer *m_localVision{nullptr};
     QComboBox *m_provider{nullptr};
-    QLineEdit *m_model{nullptr};
+    QComboBox *m_model{nullptr};
+    QLineEdit *m_customModel{nullptr};
     QLabel *m_keyStatus{nullptr};
     QLineEdit *m_keyInput{nullptr};
     QLabel *m_keyLabel{nullptr};
@@ -98,6 +102,9 @@ private:
     QLabel *m_localHardware{nullptr};
     QLabel *m_localStatus{nullptr};
     QPushButton *m_localSetup{nullptr};
+    QGroupBox *m_audioGroup{nullptr};
+    QLabel *m_audioStatus{nullptr};
+    QPushButton *m_audioSetup{nullptr};
     QGroupBox *m_visualGroup{nullptr};
     QLabel *m_visualHardware{nullptr};
     QLabel *m_visualStatus{nullptr};

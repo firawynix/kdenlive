@@ -55,3 +55,8 @@ identity is embedded through `src/icons.qrc`; the window keeps the KDE/Kdenlive
 credit and offers separate support links for the original project and the fork.
 It uses a dedicated Firawynix background asset while keeping the original
 upstream Kdenlive background untouched in the repository.
+
+Release `26.11.70-firaw.7` adds hardware-ranked Qwen 3.5 model selection,
+discovery of every locally installed Ollama model, custom model names, and
+independent setup/update controls for local language, Whisper audio, and visual
+analysis. Its Windows package is built from the full Craft portable payload.

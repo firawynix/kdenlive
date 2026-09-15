@@ -109,6 +109,17 @@ Prepare action installs Ollama through Windows Package Manager, starts its
 loopback service, downloads the recommendation with progress/ETA, and verifies
 the model without handling project media.
 
+The local-model control is a picklist backed by the official Qwen 3.5 size
+variants. It marks the hardware recommendation and installed models returned by
+Ollama `/api/tags`; arbitrary installed names are retained, and an explicit
+Other entry enables free model-name input. Re-running setup calls Ollama
+`/api/pull`, which checks the manifest and downloads only changed layers.
+
+Audio setup is exposed beside language and vision setup. It reports installed
+Whisper models and opens the existing online model manager, whose refresh also
+checks hashes. Vision setup reports the hardware-selected NanoDet artifact and
+re-verifies its pinned SHA-256 when the ready button is selected again.
+
 All AI-editor user-facing strings and executor/parser errors are translatable.
 The fork's `po/pt_BR/kdenlive.po` includes the Brazilian Portuguese catalog for
 the complete AI workflow.

@@ -7,6 +7,7 @@
 
 #include <QElapsedTimer>
 #include <QObject>
+#include <QStringList>
 
 class QNetworkAccessManager;
 class QNetworkReply;
@@ -33,6 +34,8 @@ public:
     static LocalAiHardware detectHardware();
     static QString recommendedModelForMemory(quint64 memoryBytes);
     static QString recommendedModelForHardware(const LocalAiHardware &hardware);
+    static QStringList modelCatalog();
+    static QStringList modelsFromTagsResponse(const QByteArray &payload);
     static QString approximateDownloadSize(const QString &model);
     static QString recommendationReason(const LocalAiHardware &hardware, const QString &model);
     static QString ollamaExecutable();
@@ -43,6 +46,7 @@ public:
     QString recommendedModel() const;
     QString recommendationReason() const;
     QString hardwareSummary() const;
+    QStringList installedModels() const;
 
     void refresh(const QString &model = QString());
     void installAndPrepare(const QString &model);
@@ -52,6 +56,7 @@ Q_SIGNALS:
     void statusChanged(const QString &message, bool error);
     void progressChanged(int percent, qint64 remainingSeconds, const QString &phase);
     void readyChanged(bool ready);
+    void installedModelsChanged(const QStringList &models);
     void busyChanged(bool busy);
 
 private:
@@ -71,11 +76,13 @@ private:
     LocalAiHardware m_hardware;
     QString m_targetModel;
     QString m_readyModel;
+    QStringList m_installedModels;
     QByteArray m_pullBuffer;
     QElapsedTimer m_pullTimer;
     Phase m_phase{Phase::Idle};
     bool m_ready{false};
     bool m_setupRequested{false};
+    bool m_forcePull{false};
 };
 
 } // namespace AiEditor

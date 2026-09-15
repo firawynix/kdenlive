@@ -48993,3 +48993,72 @@ msgstr "A análise visual produziu segmentos demais. Aumente o intervalo de amos
 
 msgid "Run visual and transcript analysis as separate plans for now. Apply the person-aware fast motion first, then request the audio cleanup."
 msgstr "Por enquanto, execute a análise visual e a transcrição em planos separados. Aplique primeiro o fast motion que preserva pessoas e depois solicite a limpeza do áudio."
+
+msgid "Enter an Ollama model name, for example llama3.2:3b"
+msgstr "Digite o nome de um modelo do Ollama, por exemplo llama3.2:3b"
+
+msgid "Local audio analysis (Whisper)"
+msgstr "Análise local de áudio (Whisper)"
+
+msgid "Install / manage Whisper audio models"
+msgstr "Instalar / gerenciar modelos de áudio do Whisper"
+
+msgid "recommended for this computer"
+msgstr "recomendado para este computador"
+
+msgid "installed"
+msgstr "instalado"
+
+msgid "%1 — installed"
+msgstr "%1 — instalado"
+
+msgid "Other model…"
+msgstr "Outro modelo…"
+
+msgid "%1 is installed · Check for updates"
+msgstr "%1 está instalado · Verificar atualizações"
+
+msgid "Whisper audio analysis is ready with model %1. Installed models: %2."
+msgstr "A análise de áudio do Whisper está pronta com o modelo %1. Modelos instalados: %2."
+
+msgid "Check updates / manage audio models"
+msgstr "Verificar atualizações / gerenciar modelos de áudio"
+
+msgid "Whisper is installed, but no speech model is ready."
+msgstr "O Whisper está instalado, mas nenhum modelo de fala está pronto."
+
+msgid "Download a Whisper audio model"
+msgstr "Baixar um modelo de áudio do Whisper"
+
+msgid "Whisper audio analysis is not installed yet. Installation and processing remain local."
+msgstr "A análise de áudio do Whisper ainda não está instalada. A instalação e o processamento continuam locais."
+
+msgid "Install / configure Whisper audio analysis"
+msgstr "Instalar / configurar análise de áudio do Whisper"
+
+msgid "Best compatible detector installed · Check for updates"
+msgstr "Melhor detector compatível instalado · Verificar atualizações"
+
+msgid "size reported by Ollama"
+msgstr "tamanho informado pelo Ollama"
+
+msgid "Local model %1 is installed and ready. Choose Check for updates at any time."
+msgstr "O modelo local %1 está instalado e pronto. Você pode escolher Verificar atualizações a qualquer momento."
+
+msgid "The latest available version of local model %1 is installed and ready without an API key."
+msgstr "A versão mais recente disponível do modelo local %1 está instalada e pronta, sem precisar de chave de API."
+
+msgid "Whisper still needs its local Python components. The audio setup page will be opened to install them."
+msgstr "O Whisper ainda precisa dos componentes locais do Python. A página de configuração de áudio será aberta para instalá-los."
+
+msgid "Whisper audio model %1 is installed and ready."
+msgstr "O modelo de áudio %1 do Whisper está instalado e pronto."
+
+msgid "The best compatible local person detector is installed. Choose Check for updates to verify it at any time."
+msgstr "O melhor detector local de pessoas compatível está instalado. Escolha Verificar atualizações para validá-lo a qualquer momento."
+
+msgid "Local person detector verified"
+msgstr "Detector local de pessoas verificado"
+
+msgid "The best compatible local person detector is installed, verified, and ready."
+msgstr "O melhor detector local de pessoas compatível está instalado, verificado e pronto."

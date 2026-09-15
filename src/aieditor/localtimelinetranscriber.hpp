@@ -9,10 +9,12 @@
 
 #include <QElapsedTimer>
 #include <QObject>
+#include <QStringList>
 #include <QProcess>
 #include <memory>
 
 class QTemporaryDir;
+class QWidget;
 class SpeechToTextWhisper;
 class TimelineItemModel;
 
@@ -28,6 +30,11 @@ public:
     ~LocalTimelineTranscriber() override;
 
     bool isBusy() const;
+    bool isReady();
+    bool canManageModels();
+    QStringList installedModels();
+    QString activeModel();
+    void manageModels(QWidget *parent);
     void start(const std::shared_ptr<TimelineItemModel> &timeline, double fps);
     void cancel();
 

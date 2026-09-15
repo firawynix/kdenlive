@@ -112,15 +112,15 @@ LocalAiHardware LocalAiManager::detectHardware()
 QString LocalAiManager::recommendedModelForMemory(quint64 memoryBytes)
 {
     if (memoryBytes >= 48 * GiB) {
-        return QStringLiteral("qwen3:30b");
+        return QStringLiteral("qwen3.5:27b");
     }
     if (memoryBytes >= 24 * GiB) {
-        return QStringLiteral("qwen3:14b");
+        return QStringLiteral("qwen3.5:9b");
     }
     if (memoryBytes >= 12 * GiB) {
-        return QStringLiteral("qwen3:8b");
+        return QStringLiteral("qwen3.5:4b");
     }
-    return QStringLiteral("qwen3:4b");
+    return QStringLiteral("qwen3.5:2b");
 }
 
 QString LocalAiManager::recommendedModelForHardware(const LocalAiHardware &hardware)
@@ -131,37 +131,79 @@ QString LocalAiManager::recommendedModelForHardware(const LocalAiHardware &hardw
                                      hardware.displayAdapter.contains(QLatin1String("Intel Arc"), Qt::CaseInsensitive);
     if (dedicatedDesktopGpu) {
         if (hardware.videoMemoryBytes >= 24 * GiB) {
-            return QStringLiteral("qwen3:30b");
+            return QStringLiteral("qwen3.5:27b");
         }
-        if (hardware.videoMemoryBytes >= 12 * GiB) {
-            return QStringLiteral("qwen3:14b");
+        if (hardware.videoMemoryBytes >= 10 * GiB) {
+            return QStringLiteral("qwen3.5:9b");
         }
         if (hardware.videoMemoryBytes >= 6 * GiB || hardware.videoMemoryBytes == 0) {
-            return hardware.memoryBytes >= 12 * GiB ? QStringLiteral("qwen3:8b") : QStringLiteral("qwen3:4b");
+            return hardware.memoryBytes >= 12 * GiB ? QStringLiteral("qwen3.5:4b") : QStringLiteral("qwen3.5:2b");
         }
-        return QStringLiteral("qwen3:4b");
+        return QStringLiteral("qwen3.5:2b");
     }
     if (hardware.cpuThreads >= 16 && hardware.memoryBytes >= 48 * GiB) {
-        return QStringLiteral("qwen3:14b");
+        return QStringLiteral("qwen3.5:9b");
     }
     if (hardware.cpuThreads >= 8 && hardware.memoryBytes >= 16 * GiB) {
-        return QStringLiteral("qwen3:8b");
+        return QStringLiteral("qwen3.5:4b");
     }
-    return QStringLiteral("qwen3:4b");
+    return QStringLiteral("qwen3.5:2b");
+}
+
+QStringList LocalAiManager::modelCatalog()
+{
+    return {QStringLiteral("qwen3.5:0.8b"), QStringLiteral("qwen3.5:2b"), QStringLiteral("qwen3.5:4b"), QStringLiteral("qwen3.5:9b"),
+            QStringLiteral("qwen3.5:27b"), QStringLiteral("qwen3.5:35b"), QStringLiteral("qwen3.5:122b")};
+}
+
+QStringList LocalAiManager::modelsFromTagsResponse(const QByteArray &payload)
+{
+    QStringList result;
+    const QJsonArray models = QJsonDocument::fromJson(payload).object().value(QStringLiteral("models")).toArray();
+    for (const QJsonValue &value : models) {
+        const QJsonObject model = value.toObject();
+        const QString name = model.value(QStringLiteral("name")).toString(model.value(QStringLiteral("model")).toString()).trimmed();
+        if (!name.isEmpty() && !result.contains(name)) {
+            result.push_back(name);
+        }
+    }
+    result.sort(Qt::CaseInsensitive);
+    return result;
 }
 
 QString LocalAiManager::approximateDownloadSize(const QString &model)
 {
+    if (model.contains(QLatin1String("122b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("81 GB");
+    }
+    if (model.contains(QLatin1String("35b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("24 GB");
+    }
+    if (model.contains(QLatin1String("27b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("17 GB");
+    }
     if (model.contains(QLatin1String("30b"), Qt::CaseInsensitive)) {
-        return QStringLiteral("19 GB");
+        return QStringLiteral("18 GB");
     }
     if (model.contains(QLatin1String("14b"), Qt::CaseInsensitive)) {
         return QStringLiteral("9.3 GB");
     }
+    if (model.contains(QLatin1String("9b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("6.6 GB");
+    }
     if (model.contains(QLatin1String("8b"), Qt::CaseInsensitive)) {
         return QStringLiteral("5.2 GB");
     }
-    return QStringLiteral("2.5 GB");
+    if (model.contains(QLatin1String("4b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("3.4 GB");
+    }
+    if (model.contains(QLatin1String("2b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("2.7 GB");
+    }
+    if (model.contains(QLatin1String("0.8b"), Qt::CaseInsensitive)) {
+        return QStringLiteral("1.0 GB");
+    }
+    return i18n("size reported by Ollama");
 }
 
 QString LocalAiManager::recommendationReason(const LocalAiHardware &hardware, const QString &model)
@@ -225,12 +267,18 @@ QString LocalAiManager::hardwareSummary() const
     return summary;
 }
 
+QStringList LocalAiManager::installedModels() const
+{
+    return m_installedModels;
+}
+
 void LocalAiManager::refresh(const QString &model)
 {
     if (isBusy()) {
         return;
     }
     m_setupRequested = false;
+    m_forcePull = false;
     m_targetModel = model.trimmed();
     if (ollamaExecutable().isEmpty()) {
         m_ready = false;
@@ -248,6 +296,7 @@ void LocalAiManager::installAndPrepare(const QString &model)
         return;
     }
     m_setupRequested = true;
+    m_forcePull = true;
     m_targetModel = model.trimmed().isEmpty() ? recommendedModel() : model.trimmed();
     if (!ollamaExecutable().isEmpty()) {
         probeServer(true);
@@ -320,7 +369,12 @@ void LocalAiManager::handleProbeFinished(bool mayStartServer)
     }
     m_reply = nullptr;
     if (success) {
-        if (!m_targetModel.isEmpty() && !responseContainsModel(payload)) {
+        const QStringList installed = modelsFromTagsResponse(payload);
+        if (installed != m_installedModels) {
+            m_installedModels = installed;
+            Q_EMIT installedModelsChanged(m_installedModels);
+        }
+        if (!m_targetModel.isEmpty() && (!responseContainsModel(payload) || m_forcePull)) {
             if (m_setupRequested) {
                 beginModelPull();
                 return;
@@ -336,7 +390,9 @@ void LocalAiManager::handleProbeFinished(bool mayStartServer)
         m_readyModel = m_targetModel;
         setPhase(Phase::Idle);
         Q_EMIT readyChanged(true);
-        Q_EMIT statusChanged(m_targetModel.isEmpty() ? i18n("Local Ollama service is ready.") : i18n("Local model %1 is ready.", m_targetModel), false);
+        Q_EMIT statusChanged(m_targetModel.isEmpty() ? i18n("Local Ollama service is ready.")
+                                                     : i18n("Local model %1 is installed and ready. Choose Check for updates at any time.", m_targetModel),
+                             false);
         return;
     }
     if (mayStartServer && !ollamaExecutable().isEmpty()) {
@@ -426,17 +482,20 @@ void LocalAiManager::finishModelPull()
     }
     m_ready = true;
     m_readyModel = m_targetModel;
+    if (!m_installedModels.contains(m_targetModel)) {
+        m_installedModels.push_back(m_targetModel);
+        m_installedModels.sort(Qt::CaseInsensitive);
+        Q_EMIT installedModelsChanged(m_installedModels);
+    }
     Q_EMIT progressChanged(100, 0, i18n("Local model ready"));
     Q_EMIT readyChanged(true);
-    Q_EMIT statusChanged(i18n("Local model %1 is ready and will work without an API key.", m_targetModel), false);
+    Q_EMIT statusChanged(i18n("The latest available version of local model %1 is installed and ready without an API key.", m_targetModel), false);
 }
 
 bool LocalAiManager::responseContainsModel(const QByteArray &payload) const
 {
-    const QJsonArray models = QJsonDocument::fromJson(payload).object().value(QStringLiteral("models")).toArray();
-    for (const QJsonValue &value : models) {
-        const QJsonObject model = value.toObject();
-        const QString name = model.value(QStringLiteral("name")).toString(model.value(QStringLiteral("model")).toString());
+    const QStringList models = modelsFromTagsResponse(payload);
+    for (const QString &name : models) {
         if (name == m_targetModel || name == m_targetModel + QLatin1String(":latest")) {
             return true;
         }

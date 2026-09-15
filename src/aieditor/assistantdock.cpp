@@ -54,6 +54,7 @@ namespace {
 constexpr int PromptKindRole = Qt::UserRole + 1;
 constexpr int PromptNeedsTranscriptRole = Qt::UserRole + 2;
 constexpr int PromptNeedsVisionRole = Qt::UserRole + 3;
+constexpr auto OtherLocalModel = "__other_local_model__";
 enum PromptKind { BuiltInPrompt = 0, SavedPrompt = 1, SuggestedPrompt = 2 };
 } // namespace
 
@@ -73,9 +74,19 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     }
     providerForm->addRow(i18n("Provider:"), m_provider);
 
-    m_model = new QLineEdit(this);
-    m_model->setClearButtonEnabled(true);
-    providerForm->addRow(i18n("Model:"), m_model);
+    auto *modelContainer = new QWidget(this);
+    auto *modelLayout = new QVBoxLayout(modelContainer);
+    modelLayout->setContentsMargins(0, 0, 0, 0);
+    m_model = new QComboBox(modelContainer);
+    m_model->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_model->setMinimumContentsLength(24);
+    m_customModel = new QLineEdit(modelContainer);
+    m_customModel->setClearButtonEnabled(true);
+    m_customModel->setPlaceholderText(i18n("Enter an Ollama model name, for example llama3.2:3b"));
+    m_customModel->hide();
+    modelLayout->addWidget(m_model);
+    modelLayout->addWidget(m_customModel);
+    providerForm->addRow(i18n("Model:"), modelContainer);
 
     m_keyInput = new QLineEdit(this);
     m_keyInput->setEchoMode(QLineEdit::Password);
@@ -118,6 +129,15 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     localAiLayout->addWidget(m_localStatus);
     localAiLayout->addWidget(m_localSetup);
     layout->addWidget(m_localAiGroup);
+
+    m_audioGroup = new QGroupBox(i18n("Local audio analysis (Whisper)"), this);
+    auto *audioLayout = new QVBoxLayout(m_audioGroup);
+    m_audioStatus = new QLabel(m_audioGroup);
+    m_audioStatus->setWordWrap(true);
+    m_audioSetup = new QPushButton(i18n("Install / manage Whisper audio models"), m_audioGroup);
+    audioLayout->addWidget(m_audioStatus);
+    audioLayout->addWidget(m_audioSetup);
+    layout->addWidget(m_audioGroup);
 
     m_visualGroup = new QGroupBox(i18n("Local visual analysis"), this);
     auto *visualLayout = new QVBoxLayout(m_visualGroup);
@@ -288,13 +308,29 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_deletePrompt, &QPushButton::clicked, this, &AssistantDock::deletePrompt);
     connect(m_suggestPrompts, &QPushButton::clicked, this, &AssistantDock::suggestPrompts);
     connect(m_generate, &QPushButton::clicked, this, &AssistantDock::generatePlan);
-    connect(m_model, &QLineEdit::editingFinished, this, [this]() {
-        if (selectedProvider() == AiProvider::Ollama && !m_localAi->isBusy()) {
+    connect(m_model, &QComboBox::currentIndexChanged, this, [this]() {
+        const bool custom = selectedProvider() == AiProvider::Ollama && m_model->currentData().toString() == QLatin1String(OtherLocalModel);
+        m_customModel->setVisible(custom);
+        if (selectedProvider() == AiProvider::Ollama && !custom && !m_localAi->isBusy()) {
             updateLocalSetupButton();
-            m_localAi->refresh(m_model->text());
+            m_localAi->refresh(selectedModel());
         }
     });
-    connect(m_localSetup, &QPushButton::clicked, this, [this]() { m_localAi->installAndPrepare(m_model->text()); });
+    connect(m_customModel, &QLineEdit::editingFinished, this, [this]() {
+        if (selectedProvider() == AiProvider::Ollama && !m_localAi->isBusy()) {
+            updateLocalSetupButton();
+            m_localAi->refresh(selectedModel());
+        }
+    });
+    connect(m_localSetup, &QPushButton::clicked, this, [this]() { m_localAi->installAndPrepare(selectedModel()); });
+    connect(m_audioSetup, &QPushButton::clicked, this, [this]() {
+        if (m_transcriber->canManageModels()) {
+            m_transcriber->manageModels(this);
+            updateAudioSetup();
+        } else {
+            Q_EMIT pCore->showConfigDialog(Kdenlive::PageSpeech, 0);
+        }
+    });
     connect(m_visualSetup, &QPushButton::clicked, m_localVision, &LocalVisionAnalyzer::prepare);
     connect(m_cancel, &QPushButton::clicked, this, [this]() {
         m_client->cancel();
@@ -334,6 +370,11 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_localAi, &LocalAiManager::readyChanged, this, [this](bool ready) {
         Q_UNUSED(ready)
         updateLocalSetupButton();
+    });
+    connect(m_localAi, &LocalAiManager::installedModelsChanged, this, [this](const QStringList &) {
+        if (selectedProvider() == AiProvider::Ollama) {
+            populateLocalModels(selectedModel());
+        }
     });
     connect(m_localAi, &LocalAiManager::statusChanged, this, [this](const QString &message, bool error) {
         m_localStatus->setText(error ? i18n("Error: %1", message) : message);
@@ -381,11 +422,13 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
         setStatus(i18n("Local transcript ready. Requesting the edit plan…"));
         requestProviderPlan(transcript, timelineFingerprint);
     });
+    connect(m_mainWindow, &MainWindow::configurationChanged, this, &AssistantDock::updateAudioSetup);
 
     loadSavedPrompts();
     updateProvider();
     updatePerformanceSummary();
     updateVisualSetup();
+    updateAudioSetup();
     m_localVision->refresh();
     refreshAppliedEditControls();
 }
@@ -393,6 +436,17 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
 AiProvider AssistantDock::selectedProvider() const
 {
     return AiProvider(m_provider->currentData().toInt());
+}
+
+QString AssistantDock::selectedModel() const
+{
+    if (selectedProvider() != AiProvider::Ollama) {
+        return m_model->currentText().trimmed();
+    }
+    if (selectedProvider() == AiProvider::Ollama && m_model->currentData().toString() == QLatin1String(OtherLocalModel)) {
+        return m_customModel->text().trimmed();
+    }
+    return m_model->currentData().toString().trimmed().isEmpty() ? m_model->currentText().trimmed() : m_model->currentData().toString().trimmed();
 }
 
 QByteArray AssistantDock::selectedApiKey() const
@@ -411,7 +465,23 @@ QByteArray AssistantDock::selectedApiKey() const
 void AssistantDock::updateProvider()
 {
     const bool local = selectedProvider() == AiProvider::Ollama;
-    m_model->setText(local ? m_localAi->recommendedModel() : AiProviderClient::defaultModel(selectedProvider()));
+    {
+        const QSignalBlocker blocker(m_model);
+        m_model->clear();
+        m_model->setEditable(!local);
+        if (local) {
+            populateLocalModels(m_localAi->recommendedModel());
+        } else {
+            const QString defaultModel = AiProviderClient::defaultModel(selectedProvider());
+            m_model->addItem(defaultModel, defaultModel);
+            m_model->setCurrentText(defaultModel);
+        }
+    }
+    if (!local && m_model->lineEdit()) {
+        m_model->lineEdit()->setClearButtonEnabled(true);
+    }
+    m_customModel->clear();
+    m_customModel->setVisible(false);
     m_keyInput->clear();
     m_keyLabel->setVisible(!local);
     m_keyInput->setVisible(!local);
@@ -432,20 +502,75 @@ void AssistantDock::updateProvider()
         const QString recommendation = m_localAi->recommendedModel();
         m_localHardware->setText(i18n("%1\nRecommended model: %2 (approximately %3 download).\n%4", m_localAi->hardwareSummary(), recommendation,
                                       LocalAiManager::approximateDownloadSize(recommendation), m_localAi->recommendationReason()));
-        m_localAi->refresh(m_model->text());
+        m_localAi->refresh(selectedModel());
     }
     updateLocalSetupButton();
 }
 
+void AssistantDock::populateLocalModels(const QString &preferred)
+{
+    if (selectedProvider() != AiProvider::Ollama) {
+        return;
+    }
+    const QString requested = preferred.trimmed().isEmpty() ? m_localAi->recommendedModel() : preferred.trimmed();
+    const QString recommended = m_localAi->recommendedModel();
+    const QStringList installed = m_localAi->installedModels();
+    const QSignalBlocker blocker(m_model);
+    m_model->clear();
+    for (const QString &model : LocalAiManager::modelCatalog()) {
+        QStringList details;
+        if (model == recommended) {
+            details << i18n("recommended for this computer");
+        }
+        if (installed.contains(model)) {
+            details << i18n("installed");
+        }
+        details << LocalAiManager::approximateDownloadSize(model);
+        m_model->addItem(QStringLiteral("%1 — %2").arg(model, details.join(QStringLiteral(" · "))), model);
+    }
+    for (const QString &model : installed) {
+        if (m_model->findData(model) < 0) {
+            m_model->addItem(i18n("%1 — installed", model), model);
+        }
+    }
+    m_model->addItem(i18n("Other model…"), QString::fromLatin1(OtherLocalModel));
+    int index = m_model->findData(requested);
+    if (index < 0) {
+        index = m_model->findData(QString::fromLatin1(OtherLocalModel));
+        m_customModel->setText(requested);
+    }
+    m_model->setCurrentIndex(index);
+    m_customModel->setVisible(m_model->currentData().toString() == QLatin1String(OtherLocalModel));
+}
+
 void AssistantDock::updateLocalSetupButton()
 {
-    const QString model = m_model->text().trimmed().isEmpty() ? m_localAi->recommendedModel() : m_model->text().trimmed();
+    const QString model = selectedModel().isEmpty() ? m_localAi->recommendedModel() : selectedModel();
     if (LocalAiManager::ollamaExecutable().isEmpty()) {
         m_localSetup->setText(i18n("Install Ollama and download %1 (%2)", model, LocalAiManager::approximateDownloadSize(model)));
     } else if (m_localAi->isModelReady(model)) {
-        m_localSetup->setText(i18n("Local model %1 is ready", model));
+        m_localSetup->setText(i18n("%1 is installed · Check for updates", model));
     } else {
         m_localSetup->setText(i18n("Download and prepare %1 (%2)", model, LocalAiManager::approximateDownloadSize(model)));
+    }
+}
+
+void AssistantDock::updateAudioSetup()
+{
+    if (!m_transcriber || !m_audioStatus || !m_audioSetup) {
+        return;
+    }
+    const QStringList models = m_transcriber->installedModels();
+    const QString active = m_transcriber->activeModel();
+    if (m_transcriber->isReady()) {
+        m_audioStatus->setText(i18n("Whisper audio analysis is ready with model %1. Installed models: %2.", active, models.join(QStringLiteral(", "))));
+        m_audioSetup->setText(i18n("Check updates / manage audio models"));
+    } else if (m_transcriber->canManageModels()) {
+        m_audioStatus->setText(i18n("Whisper is installed, but no speech model is ready."));
+        m_audioSetup->setText(i18n("Download a Whisper audio model"));
+    } else {
+        m_audioStatus->setText(i18n("Whisper audio analysis is not installed yet. Installation and processing remain local."));
+        m_audioSetup->setText(i18n("Install / configure Whisper audio analysis"));
     }
 }
 
@@ -458,7 +583,7 @@ void AssistantDock::updateVisualSetup()
     if (m_localVision->helperExecutable().isEmpty()) {
         m_visualSetup->setText(i18n("Update Firawynix - Kdenlive to enable visual analysis"));
     } else if (m_localVision->isReady()) {
-        m_visualSetup->setText(i18n("Local person detector is ready"));
+        m_visualSetup->setText(i18n("Best compatible detector installed · Check for updates"));
     } else {
         m_visualSetup->setText(i18n("Prepare / download person detector"));
     }
@@ -516,7 +641,7 @@ void AssistantDock::removeCredential()
 void AssistantDock::testCredential()
 {
     if (selectedProvider() == AiProvider::Ollama) {
-        m_localAi->refresh(m_model->text());
+        m_localAi->refresh(selectedModel());
         return;
     }
     const QByteArray candidate = m_keyInput->text().trimmed().isEmpty() ? selectedApiKey() : m_keyInput->text().trimmed().toUtf8();
@@ -682,7 +807,7 @@ void AssistantDock::updatePromptButtons()
 void AssistantDock::suggestPrompts()
 {
     updateCredentialStatus();
-    if (m_model->text().trimmed().isEmpty()) {
+    if (selectedModel().isEmpty()) {
         setStatus(i18n("Choose a model before requesting suggestions."), true);
         return;
     }
@@ -690,7 +815,7 @@ void AssistantDock::suggestPrompts()
         setStatus(i18n("The API key is missing. Paste and save a key before requesting suggestions."), true);
         return;
     }
-    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(m_model->text())) {
+    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(selectedModel())) {
         setStatus(i18n("Local AI is not ready. Choose Prepare / download local model first."), true);
         return;
     }
@@ -738,13 +863,13 @@ void AssistantDock::requestNextPromptSuggestionChunk()
         }
         m_suggestionConsolidating = true;
         showProgress(95, -1, i18n("Consolidating suggestions from the complete transcript"));
-        m_client->requestPromptSuggestions(selectedProvider(), m_model->text(), selectedApiKey(), candidates.join(QLatin1Char('\n')), true);
+        m_client->requestPromptSuggestions(selectedProvider(), selectedModel(), selectedApiKey(), candidates.join(QLatin1Char('\n')), true);
         return;
     }
     const int current = m_suggestionChunk + 1;
     const int total = m_suggestionChunks.size();
     showProgress(qRound(double(m_suggestionChunk) * 90.0 / double(total)), -1, i18n("Finding useful prompts · transcript segment %1 of %2", current, total));
-    m_client->requestPromptSuggestions(selectedProvider(), m_model->text(), selectedApiKey(), m_suggestionChunks.at(m_suggestionChunk).text);
+    m_client->requestPromptSuggestions(selectedProvider(), selectedModel(), selectedApiKey(), m_suggestionChunks.at(m_suggestionChunk).text);
 }
 
 void AssistantDock::handlePromptSuggestions(const QVector<PromptSuggestion> &suggestions)
@@ -826,7 +951,7 @@ void AssistantDock::generatePlan()
     }
 
     updateCredentialStatus();
-    if (m_model->text().trimmed().isEmpty()) {
+    if (selectedModel().isEmpty()) {
         setStatus(i18n("Choose a model before sending the request."), true);
         return;
     }
@@ -834,7 +959,7 @@ void AssistantDock::generatePlan()
         setStatus(i18n("The API key is missing. Set %1 and restart Kdenlive.", AiProviderClient::environmentVariable(selectedProvider())), true);
         return;
     }
-    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(m_model->text())) {
+    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(selectedModel())) {
         setStatus(i18n("Local AI is not ready. Choose Prepare / download local model first."), true);
         return;
     }
@@ -916,11 +1041,11 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     if (transcript.isEmpty()) {
         m_chunkedRequest = false;
         showProgress(-1, -1, i18n("Waiting for the AI provider"));
-        m_client->requestPlan(selectedProvider(), m_model->text(), selectedApiKey(), m_pendingPrompt, timelineFrames, fps);
+        m_client->requestPlan(selectedProvider(), selectedModel(), selectedApiKey(), m_pendingPrompt, timelineFrames, fps);
         return;
     }
 
-    const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), m_model->text(), m_pendingPrompt, timelineFrames, fps);
+    const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), selectedModel(), m_pendingPrompt, timelineFrames, fps);
     const auto saved = AiSessionStore::loadMostAdvancedCompatible(timelineFingerprint, m_pendingPrompt, timelineFrames, fps, transcript);
     const qsizetype chunkCharacters = saved ? saved->chunkCharacters : AiSessionStore::DefaultChunkCharacters;
     m_transcriptChunks = AiSessionStore::splitTranscript(transcript, timelineFrames, chunkCharacters);
@@ -930,10 +1055,10 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     }
     if (saved && saved->nextChunk <= m_transcriptChunks.size()) {
         m_checkpoint = *saved;
-        const bool transferred = m_checkpoint.id != id || m_checkpoint.provider != selectedProvider() || m_checkpoint.model != m_model->text().trimmed();
+        const bool transferred = m_checkpoint.id != id || m_checkpoint.provider != selectedProvider() || m_checkpoint.model != selectedModel();
         m_checkpoint.id = id;
         m_checkpoint.provider = selectedProvider();
-        m_checkpoint.model = m_model->text().trimmed();
+        m_checkpoint.model = selectedModel();
         QString error;
         if (!AiSessionStore::save(m_checkpoint, &error)) {
             setStatus(error, true);
@@ -947,7 +1072,7 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
         m_checkpoint.id = id;
         m_checkpoint.timelineFingerprint = timelineFingerprint;
         m_checkpoint.provider = selectedProvider();
-        m_checkpoint.model = m_model->text().trimmed();
+        m_checkpoint.model = selectedModel();
         m_checkpoint.prompt = m_pendingPrompt.trimmed();
         m_checkpoint.timelineFrames = timelineFrames;
         m_checkpoint.fps = fps;

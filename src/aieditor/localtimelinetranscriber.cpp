@@ -52,6 +52,42 @@ bool LocalTimelineTranscriber::isBusy() const
     return m_process->state() != QProcess::NotRunning || bool(m_tempDir);
 }
 
+bool LocalTimelineTranscriber::canManageModels()
+{
+    return !m_whisper->venvPythonExecs().python.isEmpty() && !m_whisper->subtitleScript().isEmpty();
+}
+
+QStringList LocalTimelineTranscriber::installedModels()
+{
+    return m_whisper->getInstalledModels();
+}
+
+QString LocalTimelineTranscriber::activeModel()
+{
+    return selectAvailableModel(KdenliveSettings::whisperModel(), installedModels());
+}
+
+bool LocalTimelineTranscriber::isReady()
+{
+    return canManageModels() && !activeModel().isEmpty();
+}
+
+void LocalTimelineTranscriber::manageModels(QWidget *parent)
+{
+    Q_UNUSED(parent)
+    if (!canManageModels()) {
+        Q_EMIT errorOccurred(i18n("Whisper still needs its local Python components. The audio setup page will be opened to install them."));
+        return;
+    }
+    m_whisper->installNewModel();
+    const QString model = activeModel();
+    if (!model.isEmpty()) {
+        KdenliveSettings::setWhisperModel(model);
+        KdenliveSettings::self()->save();
+        Q_EMIT statusChanged(i18n("Whisper audio model %1 is installed and ready.", model));
+    }
+}
+
 void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &timeline, double fps)
 {
     if (isBusy()) {
