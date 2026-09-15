@@ -9,6 +9,9 @@ OUTPUT_DIR=${OUTPUT_DIR:-$SOURCE_DIR/dist/linux}
 JOBS=${JOBS:-$(nproc)}
 REUSE_BUILD=${REUSE_BUILD:-0}
 export APPIMAGE_EXTRACT_AND_RUN=1
+# O binutils embarcado pelo linuxdeploy continuous ainda não entende seções
+# RELR produzidas por distribuições rolling; o AppImage continua comprimido.
+export NO_STRIP=1
 
 if [[ "$REUSE_BUILD" != 1 ]]; then
   rm -rf -- "$BUILD_DIR" "$APPDIR"
