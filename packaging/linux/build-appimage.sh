@@ -50,7 +50,7 @@ chmod +x "$TOOLS/linuxdeploy" "$TOOLS/linuxdeploy-plugin-qt"
 
 libraries=()
 while IFS= read -r library; do libraries+=(--library "$library"); done < <(find "$MLT_LIB_DIR" "$FREI0R_LIB_DIR" -type f -name '*.so*' 2>/dev/null)
-for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so; do
+for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so libjack.so libasound.so libusb-1.0.so; do
   library=$(find /usr/lib -type f -name "$pattern.*" -print -quit 2>/dev/null || true)
   if [[ -n "$library" ]]; then libraries+=(--library "$library"); fi
 done
