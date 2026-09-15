@@ -54,6 +54,16 @@ for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so l
   library=$(find /usr/lib -type f -name "$pattern.*" -print -quit 2>/dev/null || true)
   if [[ -n "$library" ]]; then libraries+=(--library "$library"); fi
 done
+# linuxdeploy copia os arquivos reais destas bibliotecas, mas em algumas bases
+# omite os links de SONAME que o FFmpeg abre em tempo de execução.
+for soname in libjack.so.0 libasound.so.2 libusb-1.0.so.0; do
+  library=$(ldconfig -p | awk -v soname="$soname" '$1 == soname { print $NF; exit }')
+  if [[ -n "$library" ]]; then
+    real_library=$(readlink -f "$library")
+    install -Dm644 "$real_library" "$APPDIR/usr/lib/$(basename "$real_library")"
+    ln -sfn "$(basename "$real_library")" "$APPDIR/usr/lib/$soname"
+  fi
+done
 export EXTRA_QT_PLUGINS="iconengines;imageformats;platforminputcontexts;platforms;styles;wayland-decoration-client;wayland-graphics-integration-client;wayland-shell-integration"
 export QML_SOURCES_PATHS="$SOURCE_DIR/src"
 if [[ -x /usr/lib/qt6/bin/qmake ]]; then export QMAKE=/usr/lib/qt6/bin/qmake; fi
