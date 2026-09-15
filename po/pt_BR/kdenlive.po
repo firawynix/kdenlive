@@ -48943,6 +48943,9 @@ msgstr "Não foi possível preparar a linha do tempo atual para a análise visua
 msgid "Saved local person detections restored. The video does not need to be analyzed again."
 msgstr "As detecções locais de pessoas foram restauradas. O vídeo não precisa ser analisado novamente."
 
+msgid "Compatible person detections from an earlier version were restored. The video does not need to be analyzed again."
+msgstr "As detecções de pessoas compatíveis de uma versão anterior foram restauradas. O vídeo não precisa ser analisado novamente."
+
 msgid "Local visual analysis could not be started: %1"
 msgstr "Não foi possível iniciar a análise visual local: %1"
 
@@ -48972,6 +48975,9 @@ msgstr "Um segmento da edição visual é curto demais para ser acelerado com se
 
 msgid "The requested final duration is too short while keeping detected people at normal speed."
 msgstr "A duração final solicitada é curta demais para manter as pessoas detectadas na velocidade normal."
+
+msgid "The requested duration cannot keep every detected person at normal speed. Use at least %1, or allow a slight speed-up in person intervals. The completed visual analysis was saved and will be reused when you generate the plan again."
+msgstr "A duração solicitada não permite manter todas as pessoas detectadas na velocidade normal. Use pelo menos %1 ou permita uma leve aceleração nos intervalos com pessoas. A análise visual concluída foi salva e será reutilizada quando você gerar o plano novamente."
 
 msgid "The requested duration could not be distributed across the safe clip segments."
 msgstr "Não foi possível distribuir a duração solicitada entre os segmentos seguros dos clipes."

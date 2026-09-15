@@ -28,6 +28,7 @@ struct PersonRetimePlanResult
     QString error;
     int preservedFrames{0};
     int acceleratedFrames{0};
+    int minimumDurationFrames{0};
 
     bool isValid() const;
 };
@@ -38,6 +39,7 @@ public:
     static int targetDurationFrames(const QString &instruction, double fps);
     static QVector<VisualFrameRange> normalizeDetections(const QVector<int> &detectedFrames, int sampleStepFrames, int paddingFrames, int mergeGapFrames,
                                                          int timelineFrames);
+    static int minimumTargetDurationFrames(int timelineFrames, const QVector<int> &editableDurations);
     static QVector<int> allocateTargetDurations(const QVector<int> &sourceDurations, int requiredReduction, QString *error = nullptr);
     static PersonRetimePlanResult build(const std::shared_ptr<TimelineItemModel> &timeline, const QVector<VisualFrameRange> &personRanges, int targetFrames);
 };

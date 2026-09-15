@@ -48,6 +48,12 @@ TEST_CASE("Exact reduction is distributed across clip-safe segments", "[AIEditor
     REQUIRE_FALSE(error.isEmpty());
 }
 
+TEST_CASE("Person-aware retime reports its shortest safe result", "[AIEditor][Vision]")
+{
+    REQUIRE(PersonRetimePlanner::minimumTargetDurationFrames(1000, {100, 200}) == 702);
+    REQUIRE(PersonRetimePlanner::minimumTargetDurationFrames(1000, {}) == 1000);
+}
+
 TEST_CASE("Visual setup recommendation adapts to the host", "[AIEditor][Vision][Configuration]")
 {
     constexpr quint64 GiB = 1024ULL * 1024ULL * 1024ULL;

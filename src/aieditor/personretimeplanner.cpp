@@ -88,6 +88,12 @@ QVector<VisualFrameRange> PersonRetimePlanner::normalizeDetections(const QVector
     return result;
 }
 
+int PersonRetimePlanner::minimumTargetDurationFrames(int timelineFrames, const QVector<int> &editableDurations)
+{
+    const qint64 editableFrames = std::accumulate(editableDurations.cbegin(), editableDurations.cend(), qint64(0));
+    return qBound(0, int(qMax<qint64>(0, qint64(timelineFrames) - editableFrames + editableDurations.size())), timelineFrames);
+}
+
 QVector<int> PersonRetimePlanner::allocateTargetDurations(const QVector<int> &sourceDurations, int requiredReduction, QString *error)
 {
     if (error) {
@@ -230,6 +236,9 @@ PersonRetimePlanResult PersonRetimePlanner::build(const std::shared_ptr<Timeline
         result.error = i18n("The visual analysis produced too many edit segments. Increase the visual sampling interval and try again.");
         return result;
     }
+    result.acceleratedFrames = std::accumulate(sourceDurations.cbegin(), sourceDurations.cend(), 0);
+    result.preservedFrames = duration - result.acceleratedFrames;
+    result.minimumDurationFrames = minimumTargetDurationFrames(duration, sourceDurations);
     const int requiredReduction = duration - targetFrames;
     QString allocationError;
     const QVector<int> targets = allocateTargetDurations(sourceDurations, requiredReduction, &allocationError);
@@ -242,9 +251,7 @@ PersonRetimePlanResult PersonRetimePlanner::build(const std::shared_ptr<Timeline
         operation.type = EditOperationType::RetimeRange;
         operation.retimeRange = {editable.at(index).startFrame, editable.at(index).endFrame, targets.at(index), true};
         result.plan.operations.push_back(operation);
-        result.acceleratedFrames += sourceDurations.at(index);
     }
-    result.preservedFrames = duration - result.acceleratedFrames;
     return result;
 }
 

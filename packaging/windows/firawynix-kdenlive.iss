@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-  #define MyAppVersion "26.11.70-firaw.5"
+  #define MyAppVersion "26.11.70-firaw.6"
 #endif
 #ifndef StageDir
   #define StageDir "..\\..\\dist\\windows\\stage"

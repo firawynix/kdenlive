@@ -870,11 +870,19 @@ void AssistantDock::handleVisualAnalysis(const LocalVisionResult &result)
     const int timelineFrames = timelineWidget->model()->duration();
     const QVector<VisualFrameRange> personRanges = PersonRetimePlanner::normalizeDetections(
         result.personFrames, result.sampleStepFrames, qMax(1, int(qRound(fps))), qMax(1, int(qRound(fps * 2.0))), timelineFrames);
-    const PersonRetimePlanResult planned = PersonRetimePlanner::build(timelineWidget->model(), personRanges, m_pendingVisualTargetFrames);
+    const int requestedTargetFrames = m_pendingVisualTargetFrames;
+    const PersonRetimePlanResult planned = PersonRetimePlanner::build(timelineWidget->model(), personRanges, requestedTargetFrames);
     m_pendingVisualTargetFrames = -1;
     if (!planned.isValid()) {
         hideProgress();
-        setStatus(planned.error, true);
+        if (planned.minimumDurationFrames > requestedTargetFrames) {
+            setStatus(i18n("The requested duration cannot keep every detected person at normal speed. Use at least %1, or allow a slight speed-up in person intervals. "
+                           "The completed visual analysis was saved and will be reused when you generate the plan again.",
+                           formatFrames(planned.minimumDurationFrames, fps)),
+                      true);
+        } else {
+            setStatus(planned.error, true);
+        }
         return;
     }
 

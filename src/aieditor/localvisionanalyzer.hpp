@@ -71,6 +71,8 @@ private:
     void finishAnalysis(int exitCode, QProcess::ExitStatus status);
     QString cachePath(const QString &fingerprint) const;
     bool loadResultFile(const QString &path, LocalVisionResult &result, QString *error = nullptr) const;
+    bool saveResultFile(const QString &path, const LocalVisionResult &result, int timelineFrames, double fps, const QString &fingerprint) const;
+    bool restoreLegacyResult(const QString &destination, int timelineFrames, double fps, LocalVisionResult &result) const;
     void resetAnalysis();
     void applyNativeBudget();
     void releaseNativeBudget();
@@ -86,6 +88,8 @@ private:
     QString m_outputPath;
     QString m_fingerprint;
     int m_sampleStepFrames{1};
+    int m_timelineFrames{0};
+    double m_fps{0.0};
     bool m_cancelRequested{false};
     quintptr m_nativeBudgetHandle{0};
     QElapsedTimer m_timer;

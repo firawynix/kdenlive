@@ -5,6 +5,7 @@
 
 #include "localvisionanalyzer.hpp"
 
+#include "aisessionstore.hpp"
 #include "timeline2/model/timelineitemmodel.hpp"
 
 #include <KLocalizedString>
@@ -25,6 +26,7 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <algorithm>
 #include <climits>
 
 #ifdef Q_OS_WIN
@@ -217,6 +219,8 @@ void LocalVisionAnalyzer::start(const std::shared_ptr<TimelineItemModel> &timeli
         Q_EMIT statusChanged(i18n("Local visual analysis is not ready. Choose Prepare visual analysis first."), true);
         return;
     }
+    m_timelineFrames = timeline->duration();
+    m_fps = fps;
     m_tempDir = std::make_unique<QTemporaryDir>();
     if (!m_tempDir->isValid()) {
         resetAnalysis();
@@ -233,11 +237,11 @@ void LocalVisionAnalyzer::start(const std::shared_ptr<TimelineItemModel> &timeli
         return;
     }
     const QByteArray sceneData = scene.readAll();
-    QCryptographicHash fingerprint(QCryptographicHash::Sha256);
-    fingerprint.addData(sceneData);
-    fingerprint.addData(QByteArray::number(fps, 'g', 15));
-    fingerprint.addData(QFileInfo(modelPath()).fileName().toUtf8());
-    m_fingerprint = QString::fromLatin1(fingerprint.result().toHex());
+    m_budget = ResourceBudget::fromSettings();
+    const int samplesPerMinute = recommendedSamplesPerMinute(m_hardware, m_budget);
+    m_sampleStepFrames = qMax(1, int(qRound(fps * 60.0 / double(samplesPerMinute))));
+    m_fingerprint = AiSessionStore::timelineFingerprint(sceneData, fps, QFileInfo(modelPath()).fileName(), QStringLiteral("person-detection-v2"),
+                                                        m_tempDir->path());
     LocalVisionResult cached;
     const QString saved = cachePath(m_fingerprint);
     const QFileInfo savedInfo(saved);
@@ -249,10 +253,15 @@ void LocalVisionAnalyzer::start(const std::shared_ptr<TimelineItemModel> &timeli
         Q_EMIT analysisReady(cached);
         return;
     }
+    if (restoreLegacyResult(saved, timeline->duration(), fps, cached)) {
+        cached.timelineFingerprint = m_fingerprint;
+        cached.restoredFromCache = true;
+        resetAnalysis();
+        Q_EMIT statusChanged(i18n("Compatible person detections from an earlier version were restored. The video does not need to be analyzed again."), false);
+        Q_EMIT analysisReady(cached);
+        return;
+    }
 
-    m_budget = ResourceBudget::fromSettings();
-    const int samplesPerMinute = recommendedSamplesPerMinute(m_hardware, m_budget);
-    m_sampleStepFrames = qMax(1, int(qRound(fps * 60.0 / double(samplesPerMinute))));
     m_cancelRequested = false;
     m_processOutput.clear();
     m_timer.restart();
@@ -384,9 +393,7 @@ void LocalVisionAnalyzer::finishAnalysis(int exitCode, QProcess::ExitStatus stat
     }
     result.timelineFingerprint = m_fingerprint;
     result.sampleStepFrames = m_sampleStepFrames;
-    QDir().mkpath(QFileInfo(cachePath(m_fingerprint)).absolutePath());
-    QFile::remove(cachePath(m_fingerprint));
-    QFile::copy(m_outputPath, cachePath(m_fingerprint));
+    saveResultFile(cachePath(m_fingerprint), result, m_timelineFrames, m_fps, m_fingerprint);
     resetAnalysis();
     setPhase(Phase::Idle);
     Q_EMIT progressChanged(100, 0, i18n("Local person analysis complete"));
@@ -429,6 +436,77 @@ bool LocalVisionAnalyzer::loadResultFile(const QString &path, LocalVisionResult 
     return true;
 }
 
+bool LocalVisionAnalyzer::saveResultFile(const QString &path, const LocalVisionResult &result, int timelineFrames, double fps,
+                                         const QString &fingerprint) const
+{
+    QJsonArray frames;
+    for (int frame : result.personFrames) {
+        frames.append(frame);
+    }
+    const QJsonObject root{{QStringLiteral("version"), 1},
+                           {QStringLiteral("sample_step_frames"), result.sampleStepFrames},
+                           {QStringLiteral("backend"), result.backend},
+                           {QStringLiteral("person_frames"), frames},
+                           {QStringLiteral("timeline_fingerprint"), fingerprint},
+                           {QStringLiteral("timeline_frames"), timelineFrames},
+                           {QStringLiteral("fps"), fps}};
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    QSaveFile file(path);
+    const QByteArray payload = QJsonDocument(root).toJson(QJsonDocument::Compact);
+    return file.open(QIODevice::WriteOnly) && file.write(payload) == payload.size() && file.commit();
+}
+
+bool LocalVisionAnalyzer::restoreLegacyResult(const QString &destination, int timelineFrames, double fps, LocalVisionResult &result) const
+{
+    // Firawynix 26.11.70-firaw.5 included the random temporary directory in the
+    // cache key. Only recover that legacy cache when repeated runs produced the
+    // exact same detections and their coverage matches both ends of this timeline.
+    const QDir cacheDir(QFileInfo(destination).absolutePath());
+    const QFileInfoList files = cacheDir.entryInfoList({QStringLiteral("*.json")}, QDir::Files, QDir::Time);
+    QByteArray matchingDigest;
+    LocalVisionResult matchingResult;
+    int matchingCopies = 0;
+    const int edgeTolerance = qMax(1, int(qRound(fps * 5.0 * 60.0)));
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    for (const QFileInfo &info : files) {
+        if (info.absoluteFilePath() == destination || info.lastModified().toUTC().secsTo(now) > 7 * 24 * 60 * 60) {
+            continue;
+        }
+        QFile file(info.absoluteFilePath());
+        if (!file.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        const QByteArray payload = file.readAll();
+        const QJsonObject root = QJsonDocument::fromJson(payload).object();
+        if (root.contains(QStringLiteral("timeline_fingerprint"))) {
+            continue;
+        }
+        LocalVisionResult candidate;
+        if (!loadResultFile(info.absoluteFilePath(), candidate) || candidate.sampleStepFrames != m_sampleStepFrames || candidate.personFrames.isEmpty()) {
+            continue;
+        }
+        const auto [minimum, maximum] = std::minmax_element(candidate.personFrames.cbegin(), candidate.personFrames.cend());
+        if (*minimum > edgeTolerance || *maximum >= timelineFrames || timelineFrames - *maximum > edgeTolerance) {
+            continue;
+        }
+        const QByteArray digest = QCryptographicHash::hash(payload, QCryptographicHash::Sha256);
+        if (!matchingDigest.isEmpty() && digest != matchingDigest) {
+            return false;
+        }
+        matchingDigest = digest;
+        matchingResult = candidate;
+        ++matchingCopies;
+    }
+    if (matchingCopies < 2) {
+        return false;
+    }
+    if (!saveResultFile(destination, matchingResult, timelineFrames, fps, QFileInfo(destination).completeBaseName())) {
+        return false;
+    }
+    result = matchingResult;
+    return true;
+}
+
 void LocalVisionAnalyzer::resetAnalysis()
 {
     releaseNativeBudget();
@@ -437,6 +515,8 @@ void LocalVisionAnalyzer::resetAnalysis()
     m_processOutput.clear();
     m_fingerprint.clear();
     m_sampleStepFrames = 1;
+    m_timelineFrames = 0;
+    m_fps = 0.0;
     m_cancelRequested = false;
 }
 
