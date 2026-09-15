@@ -63,6 +63,9 @@ install -Dm644 "$SOURCE_DIR/data/icons/256-apps-kdenlive.png" "$OUTPUT_DIR/kdenl
   --appdir "$APPDIR" \
   --executable "$APPDIR/usr/bin/kdenlive" \
   --executable "$APPDIR/usr/bin/kdenlive_render" \
+  --executable "$APPDIR/usr/bin/ffmpeg" \
+  --executable "$APPDIR/usr/bin/melt" \
+  --executable "$APPDIR/usr/bin/secret-tool" \
   --desktop-file "$APPDIR/usr/share/applications/org.kde.kdenlive.desktop" \
   --icon-file "$OUTPUT_DIR/kdenlive.png" \
   "${libraries[@]}" \
