@@ -56,6 +56,7 @@ for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so; 
 done
 export EXTRA_QT_PLUGINS="iconengines;imageformats;platforminputcontexts;platforms;styles;wayland-decoration-client;wayland-graphics-integration-client;wayland-shell-integration"
 export QML_SOURCES_PATHS="$SOURCE_DIR/src"
+if [[ -x /usr/lib/qt6/bin/qmake ]]; then export QMAKE=/usr/lib/qt6/bin/qmake; fi
 export OUTPUT="$OUTPUT_DIR/Firawynix-Kdenlive-26.11.70-firaw.5-x86_64.AppImage"
 install -Dm644 "$SOURCE_DIR/data/icons/256-apps-kdenlive.png" "$OUTPUT_DIR/kdenlive.png"
 "$TOOLS/linuxdeploy" --appimage-extract-and-run \
