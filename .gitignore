@@ -30,6 +30,7 @@ kde-ci-reports/*
 /dist/windows/*.exe
 /dist/windows/*.sha256
 /dist/windows/update.json
+/dist/linux/
 /packaging/windows/launcher/bin/
 /packaging/windows/launcher/obj/
 /website-site.tar.gz
