@@ -56,7 +56,9 @@ for pattern in libmovit.so libexif.so librnnoise.so librtaudio.so libsox_ng.so l
 done
 # linuxdeploy copia os arquivos reais destas bibliotecas, mas em algumas bases
 # omite os links de SONAME que o FFmpeg abre em tempo de execução.
-for soname in libjack.so.0 libasound.so.2 libusb-1.0.so.0; do
+for soname in libjack.so.0 libasound.so.2 libusb-1.0.so.0 \
+  libOpenGL.so.0 libGLX.so.0 libGLdispatch.so.0 libharfbuzz.so.0 \
+  libfribidi.so.0; do
   library=$(ldconfig -p | awk -v soname="$soname" '$1 == soname { print $NF; exit }')
   if [[ -n "$library" ]]; then
     real_library=$(readlink -f "$library")
