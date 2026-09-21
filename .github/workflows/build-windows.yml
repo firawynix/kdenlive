@@ -63,15 +63,17 @@ jobs:
 
           # The current MSVC autotools shadow build loses absolute source
           # prerequisites between configure and make on hosted runners. This
-          # affects each dependency built from source (pkgconf, libb2, and
-          # others), so use their conventional in-source build on Windows.
+          # affects dependencies such as pkgconf, libb2, and OpenSSL, so use
+          # their conventional in-source build on Windows. ICU is the one
+          # exception: its data makefiles require the generated shadow-build
+          # directory and fail in-source with a missing dirs.timestamp target.
           $autotoolsModule = Join-Path $craftSource "bin\BuildSystem\AutoToolsBuildSystem.py"
           $autotoolsSource = Get-Content -LiteralPath $autotoolsModule -Raw
           $autotoolsNeedle = '        BuildSystemBase.__init__(self, package, "autotools")'
           if (-not $autotoolsSource.Contains($autotoolsNeedle)) {
             throw "Unable to locate Craft's autotools initialization."
           }
-          $autotoolsReplacement = "$autotoolsNeedle`r`n        if CraftCore.compiler.isWindows:`r`n            self.subinfo.options.useShadowBuild = False"
+          $autotoolsReplacement = "$autotoolsNeedle`r`n        if CraftCore.compiler.isWindows and package.path != `"libs/icu`":`r`n            self.subinfo.options.useShadowBuild = False"
           Set-Content -LiteralPath $autotoolsModule -Value $autotoolsSource.Replace($autotoolsNeedle, $autotoolsReplacement) -Encoding utf8
 
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
