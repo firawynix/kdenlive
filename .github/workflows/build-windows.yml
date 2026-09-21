@@ -41,20 +41,6 @@ jobs:
           $bootstrap = Join-Path $env:RUNNER_TEMP "CraftBootstrap.py"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KDE/craft/master/setup/CraftBootstrap.py" -OutFile $bootstrap
 
-          # Kdenlive's official Windows build guide recommends MinGW. Craft's
-          # unattended default is MSVC, so make the documented MinGW choice
-          # explicit while leaving the rest of the official bootstrap intact.
-          $source = Get-Content -LiteralPath $bootstrap -Raw
-          $needle = "            ],`n            (`"msvc2022`", `"cl`"),`n            returnDefaultWithoutPrompt=args.use_defaults,"
-          if (-not $source.Contains($needle)) {
-            $needle = $needle.Replace("`n", "`r`n")
-          }
-          if (-not $source.Contains($needle)) {
-            throw "Unable to locate Craft's unattended Windows compiler default."
-          }
-          $replacement = $needle.Replace("(`"msvc2022`", `"cl`"),", "(None, `"gcc`"),")
-          Set-Content -LiteralPath $bootstrap -Value $source.Replace($needle, $replacement) -Encoding utf8
-
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
