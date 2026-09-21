@@ -67,7 +67,10 @@ jobs:
         shell: pwsh
         run: |
           $craft = Join-Path $env:CRAFT_ROOT "craft\bin\craft.py"
-          python $craft --ci-mode --no-cache --options "[CodeSigning]Enabled=False" $env:CRAFT_PACKAGE
+          # Dependencies may come from KDE's official binary cache. The custom
+          # commit target has no matching cached Kdenlive package, so Craft
+          # still compiles the application itself from this repository.
+          python $craft --ci-mode --options "[CodeSigning]Enabled=False" $env:CRAFT_PACKAGE
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           python $craft --ci-mode --options "[CodeSigning]Enabled=False" dev-utils/innosetup
