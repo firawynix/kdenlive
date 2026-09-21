@@ -20,3 +20,16 @@ o instalador e o arquivo de hash em `dist/windows`.
 O projeto continua sob GPL e preserva os créditos do Kdenlive. O repositório
 original é <https://github.com/KDE/kdenlive> e o fork Firawynix é
 <https://github.com/firawynix/kdenlive>.
+
+## Build público e verificável
+
+O workflow `Build Windows installer` executa todo o processo em uma máquina
+Windows limpa do GitHub Actions. Ele instala o KDE Craft a partir do projeto
+oficial, fixa o blueprint no SHA exato que iniciou a execução, compila o fork
+sem usar um binário pré-compilado do Kdenlive e publica o instalador sem
+assinatura como artefato do próprio job.
+
+Cada artefato inclui `provenance.json`, com repositório, commit, referência do
+workflow, URL da execução, versão e SHA-256. A assinatura de produção será uma
+etapa posterior do SignPath; chaves privadas nunca ficam no repositório nem no
+runner do GitHub.
