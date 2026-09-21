@@ -64,17 +64,25 @@ jobs:
           # The current MSVC autotools shadow build loses absolute source
           # prerequisites between configure and make on hosted runners. This
           # affects dependencies such as pkgconf, libb2, and OpenSSL, so use
-          # their conventional in-source build on Windows. ICU is the one
-          # exception: its data makefiles require the generated shadow-build
-          # directory and fail in-source with a missing dirs.timestamp target.
+          # their conventional in-source build on Windows.
           $autotoolsModule = Join-Path $craftSource "bin\BuildSystem\AutoToolsBuildSystem.py"
-          $autotoolsSource = Get-Content -LiteralPath $autotoolsModule -Raw
+          $autotoolsSource = (Get-Content -LiteralPath $autotoolsModule -Raw) -replace "`r`n", "`n"
           $autotoolsNeedle = '        BuildSystemBase.__init__(self, package, "autotools")'
           if (-not $autotoolsSource.Contains($autotoolsNeedle)) {
             throw "Unable to locate Craft's autotools initialization."
           }
-          $autotoolsReplacement = "$autotoolsNeedle`r`n        if CraftCore.compiler.isWindows and package.path != `"libs/icu`":`r`n            self.subinfo.options.useShadowBuild = False"
-          Set-Content -LiteralPath $autotoolsModule -Value $autotoolsSource.Replace($autotoolsNeedle, $autotoolsReplacement) -Encoding utf8
+          $autotoolsReplacement = "$autotoolsNeedle`n        if CraftCore.compiler.isWindows:`n            self.subinfo.options.useShadowBuild = False"
+          $autotoolsSource = $autotoolsSource.Replace($autotoolsNeedle, $autotoolsReplacement)
+
+          # ICU 78 can select its prebuilt data archive without emitting the
+          # dirs.timestamp rule that its Windows resource target still needs.
+          # Recreate exactly that generated marker after the in-source clean.
+          $makeNeedle = "        if not self.subinfo.options.useShadowBuild:`n            if not self.shell.execute(self.buildDir(), self.makeProgram, `"clean`"):`n                return False"
+          if (-not $autotoolsSource.Contains($makeNeedle)) {
+            throw "Unable to locate Craft's autotools make preparation."
+          }
+          $makeReplacement = "$makeNeedle`n        if CraftCore.compiler.isWindows and self.package.path == `"libs/icu`":`n            data_tmp = self.sourceDir() / `"data`" / `"out`" / `"tmp`"`n            data_tmp.mkdir(parents=True, exist_ok=True)`n            (data_tmp / `"dirs.timestamp`").write_text(`"timestamp\n`", encoding=`"utf-8`")"
+          Set-Content -LiteralPath $autotoolsModule -Value $autotoolsSource.Replace($makeNeedle, $makeReplacement) -Encoding utf8
 
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
