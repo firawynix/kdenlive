@@ -16,7 +16,9 @@ jobs:
     timeout-minutes: 330
 
     env:
-      CRAFT_ROOT: C:\CraftRoot
+      # A physically short root lets us avoid Craft's Windows junction-path
+      # regression while keeping paths below the legacy Windows limit.
+      CRAFT_ROOT: C:\C
       CRAFT_PACKAGE: kde/kdemultimedia/kdenlive
       PYTHONUTF8: "1"
 
@@ -39,9 +41,27 @@ jobs:
         shell: pwsh
         run: |
           $bootstrap = Join-Path $env:RUNNER_TEMP "CraftBootstrap.py"
+          $craftSource = Join-Path $env:RUNNER_TEMP "craft-source"
           Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KDE/craft/master/setup/CraftBootstrap.py" -OutFile $bootstrap
 
-          python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults
+          git config --global core.longpaths true
+          git clone --depth 1 https://invent.kde.org/packaging/craft.git $craftSource
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # Current Craft recreates C:\_ junctions between configure and make.
+          # Autotools-generated makefiles retain the first junction path and
+          # then fail because it no longer points to their source tree. With a
+          # short physical root no junction is needed, so disable only that
+          # path alias in the public bootstrap source.
+          $shortPathModule = Join-Path $craftSource "bin\Utils\CraftShortPath.py"
+          $source = Get-Content -LiteralPath $shortPathModule -Raw
+          $needle = "_useShortpaths = OsUtils.isWin()"
+          if (-not $source.Contains($needle)) {
+            throw "Unable to locate Craft's Windows short-path setting."
+          }
+          Set-Content -LiteralPath $shortPathModule -Value $source.Replace($needle, "_useShortpaths = False") -Encoding utf8
+
+          python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Pin Craft to this public source commit
