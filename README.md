@@ -67,4 +67,8 @@ Linux AppImage build is in [packaging/linux](packaging/linux/build-appimage.sh)
 and stores provider keys through the desktop Secret Service. The interactive
 product website lives in [website](website/README.md).
 
+Public release signing for this fork follows the
+[code signing policy](CODE_SIGNING_POLICY.md). It applies only to artifacts
+built from the public fork and never to unrelated Firawynix software.
+
 Please get in touch with us before working on a task, either by commenting in the issue or through our Matrix channel.
