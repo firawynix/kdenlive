@@ -62,16 +62,17 @@ jobs:
           Set-Content -LiteralPath $shortPathModule -Value $source.Replace($needle, "_useShortpaths = False") -Encoding utf8
 
           # The current MSVC autotools shadow build loses absolute source
-          # prerequisites between configure and make on hosted runners. This
-          # affects dependencies such as pkgconf, libb2, and OpenSSL, so use
-          # their conventional in-source build on Windows.
+          # prerequisites between configure and make for a small set of
+          # dependencies on hosted runners. Keep the normal Craft layout for
+          # everything else, notably gettext, whose Windows link configuration
+          # depends on its shadow build.
           $autotoolsModule = Join-Path $craftSource "bin\BuildSystem\AutoToolsBuildSystem.py"
           $autotoolsSource = (Get-Content -LiteralPath $autotoolsModule -Raw) -replace "`r`n", "`n"
           $autotoolsNeedle = '        BuildSystemBase.__init__(self, package, "autotools")'
           if (-not $autotoolsSource.Contains($autotoolsNeedle)) {
             throw "Unable to locate Craft's autotools initialization."
           }
-          $autotoolsReplacement = "$autotoolsNeedle`n        if CraftCore.compiler.isWindows:`n            self.subinfo.options.useShadowBuild = False"
+          $autotoolsReplacement = "$autotoolsNeedle`n        if CraftCore.compiler.isWindows and package.path in (`"dev-utils/pkgconf`", `"libs/libb2`", `"libs/openssl`", `"libs/icu`"):`n            self.subinfo.options.useShadowBuild = False"
           $autotoolsSource = $autotoolsSource.Replace($autotoolsNeedle, $autotoolsReplacement)
 
           # ICU 78 can select its prebuilt data archive without emitting the
