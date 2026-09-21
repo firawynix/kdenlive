@@ -61,6 +61,20 @@ jobs:
           }
           Set-Content -LiteralPath $shortPathModule -Value $source.Replace($needle, "_useShortpaths = False") -Encoding utf8
 
+          # pkgconf's release archive contains generated autotools files, but
+          # its MSVC shadow build can lose the absolute source prerequisite
+          # between configure and make on hosted Windows runners. Building
+          # this bootstrap-only dependency in its source directory avoids the
+          # broken cross-directory prerequisite without changing its source.
+          $pkgconfBlueprint = Join-Path $craftSource "blueprints\dev-utils\pkgconf\pkgconf.py"
+          $pkgconfSource = Get-Content -LiteralPath $pkgconfBlueprint -Raw
+          $pkgconfNeedle = "self.subinfo.options.configure.autoreconf = False"
+          if (-not $pkgconfSource.Contains($pkgconfNeedle)) {
+            throw "Unable to locate Craft's pkgconf bootstrap configuration."
+          }
+          $pkgconfReplacement = "$pkgconfNeedle`r`n        self.subinfo.options.useShadowBuild = False"
+          Set-Content -LiteralPath $pkgconfBlueprint -Value $pkgconfSource.Replace($pkgconfNeedle, $pkgconfReplacement) -Encoding utf8
+
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
