@@ -103,6 +103,45 @@ jobs:
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Select stable gettext host tools
+        shell: pwsh
+        run: |
+          # The MSVC gettext libraries produced by the current Craft recipe
+          # build successfully, but its command-line tools terminate with a
+          # Windows fast-fail when another dependency invokes them. Craft has
+          # already installed the official MSYS gettext host tools, so expose
+          # only those tools ahead of C:\C\bin while keeping every compiler and
+          # target library on the native MSVC toolchain.
+          $msysBin = Join-Path $env:CRAFT_ROOT "msys\usr\bin"
+          $shimDir = Join-Path $env:RUNNER_TEMP "firaw-gettext-tools"
+          New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+
+          $toolNames = @(
+            "envsubst", "gettext", "msgattrib", "msgcat", "msgcmp",
+            "msgcomm", "msgconv", "msgen", "msgexec", "msgfilter",
+            "msgfmt", "msggrep", "msginit", "msgmerge", "msgunfmt",
+            "msguniq", "ngettext", "xgettext"
+          )
+          foreach ($toolName in $toolNames) {
+            $target = Join-Path $msysBin "$toolName.exe"
+            if (Test-Path -LiteralPath $target) {
+              $shim = Join-Path $shimDir "$toolName.cmd"
+              $body = "@echo off`r`n`"$target`" %*`r`nexit /b %ERRORLEVEL%`r`n"
+              Set-Content -LiteralPath $shim -Value $body -Encoding ascii
+            }
+          }
+
+          foreach ($requiredTool in @("msgfmt", "msgmerge", "xgettext")) {
+            if (-not (Test-Path -LiteralPath (Join-Path $shimDir "$requiredTool.cmd"))) {
+              throw "MSYS gettext host tool is missing: $requiredTool"
+            }
+          }
+
+          $env:PATH = "$shimDir;$env:PATH"
+          $shimDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & msgfmt --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Pin Craft to this public source commit
         shell: pwsh
         run: |
@@ -111,6 +150,12 @@ jobs:
       - name: Build Kdenlive and all required runtime files
         shell: pwsh
         run: |
+          $expectedMsgfmt = Join-Path $env:RUNNER_TEMP "firaw-gettext-tools\msgfmt.cmd"
+          $resolvedMsgfmt = (Get-Command msgfmt -ErrorAction Stop).Source
+          if (-not [string]::Equals($resolvedMsgfmt, $expectedMsgfmt, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Unexpected gettext host tool: $resolvedMsgfmt"
+          }
+
           $craft = Join-Path $env:CRAFT_ROOT "craft\bin\craft.py"
           # Dependencies may come from KDE's official binary cache. The custom
           # commit target has no matching cached Kdenlive package, so Craft
