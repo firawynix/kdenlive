@@ -82,7 +82,7 @@ jobs:
           if (-not $autotoolsSource.Contains($makeNeedle)) {
             throw "Unable to locate Craft's autotools make preparation."
           }
-          $makeReplacement = "$makeNeedle`n        if CraftCore.compiler.isWindows and self.package.path == `"libs/icu`":`n            data_tmp = self.sourceDir() / `"data`" / `"out`" / `"tmp`"`n            data_tmp.mkdir(parents=True, exist_ok=True)`n            (data_tmp / `"dirs.timestamp`").write_text(`"timestamp\n`", encoding=`"utf-8`")"
+          $makeReplacement = "$makeNeedle`n        if CraftCore.compiler.isWindows and self.package.path == `"libs/icu`":`n            data_tmp = self.sourceDir() / `"data`" / `"out`" / `"tmp`"`n            data_tmp.mkdir(parents=True, exist_ok=True)`n            (data_tmp / `"dirs.timestamp`").write_text(`"timestamp\n`", encoding=`"utf-8`")`n        if CraftCore.compiler.isMSVC() and self.package.path == `"libs/gettext`":`n            gettext_makefile = self.buildDir() / `"gettext-tools`" / `"gnulib-lib`" / `"Makefile`"`n            with gettext_makefile.open(`"a`", encoding=`"utf-8`") as stream:`n                stream.write(`"\nlibgettextlib_la_LIBADD += -liconv\n`")"
           Set-Content -LiteralPath $autotoolsModule -Value $autotoolsSource.Replace($makeNeedle, $makeReplacement) -Encoding utf8
 
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
