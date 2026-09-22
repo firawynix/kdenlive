@@ -85,6 +85,21 @@ jobs:
           $makeReplacement = "$makeNeedle`n        if CraftCore.compiler.isWindows and self.package.path == `"libs/icu`":`n            data_tmp = self.sourceDir() / `"data`" / `"out`" / `"tmp`"`n            data_tmp.mkdir(parents=True, exist_ok=True)`n            (data_tmp / `"dirs.timestamp`").write_text(`"timestamp\n`", encoding=`"utf-8`")`n        if CraftCore.compiler.isMSVC() and self.package.path == `"libs/gettext`":`n            gettext_makefile = self.buildDir() / `"gettext-tools`" / `"gnulib-lib`" / `"Makefile`"`n            with gettext_makefile.open(`"a`", encoding=`"utf-8`") as stream:`n                stream.write(`"\nlibgettextlib_la_LIBADD += -liconv\n`")"
           Set-Content -LiteralPath $autotoolsModule -Value $autotoolsSource.Replace($makeNeedle, $makeReplacement) -Encoding utf8
 
+          # Craft's MSVC gettext recipe intends to disable the printf %n
+          # probe because the resulting tools crash on Windows. A missing
+          # comma currently joins that cache entry to the preceding one, so
+          # neither value reaches configure. Repair only that public recipe.
+          $gettextBlueprint = Join-Path $craftSource "blueprints\libs\gettext\gettext.py"
+          $gettextSource = (Get-Content -LiteralPath $gettextBlueprint -Raw) -replace "`r`n", "`n"
+          $gettextBroken = '                "ac_cv_func_memmove=yes"' + "`n" + '                # The following are required for a full gettext built (libintl and tools).'
+          $gettextFixed = '                "ac_cv_func_memmove=yes",' + "`n" + '                # The following are required for a full gettext built (libintl and tools).'
+          if ($gettextSource.Contains($gettextBroken)) {
+            $gettextSource = $gettextSource.Replace($gettextBroken, $gettextFixed)
+          } elseif (-not $gettextSource.Contains($gettextFixed)) {
+            throw "Unable to validate Craft's gettext MSVC cache options."
+          }
+          Set-Content -LiteralPath $gettextBlueprint -Value $gettextSource -Encoding utf8
+
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
