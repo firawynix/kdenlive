@@ -72,7 +72,7 @@ jobs:
           if (-not $autotoolsSource.Contains($autotoolsNeedle)) {
             throw "Unable to locate Craft's autotools initialization."
           }
-          $autotoolsReplacement = "$autotoolsNeedle`n        if CraftCore.compiler.isWindows and package.path in (`"dev-utils/pkgconf`", `"libs/libb2`", `"libs/openssl`", `"libs/icu`", `"libs/libunistring`"):`n            self.subinfo.options.useShadowBuild = False"
+          $autotoolsReplacement = "$autotoolsNeedle`n        if CraftCore.compiler.isWindows and package.path in (`"dev-utils/pkgconf`", `"libs/libb2`", `"libs/openssl`", `"libs/icu`", `"libs/libunistring`", `"libs/libffi`"):`n            self.subinfo.options.useShadowBuild = False"
           $autotoolsSource = $autotoolsSource.Replace($autotoolsNeedle, $autotoolsReplacement)
 
           # ICU 78 can select its prebuilt data archive without emitting the
