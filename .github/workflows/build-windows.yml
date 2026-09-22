@@ -137,10 +137,21 @@ jobs:
             }
           }
 
-          $env:PATH = "$shimDir;$env:PATH"
+          # Meson records Craft's absolute msgfmt.exe path, bypassing PATH and
+          # the command shims. Replace that broken host tool on this runner.
+          $craftMsgfmt = Join-Path $env:CRAFT_ROOT "bin\msgfmt.exe"
+          Copy-Item -LiteralPath $craftMsgfmt -Destination (Join-Path $env:RUNNER_TEMP "craft-msgfmt-original.exe")
+          Copy-Item -LiteralPath (Join-Path $msysBin "msgfmt.exe") -Destination $craftMsgfmt -Force
+
+          $env:PATH = "$shimDir;$msysBin;$env:PATH"
           $shimDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $msysBin | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & msgfmt --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $craftMsgfmt -o (Join-Path $env:RUNNER_TEMP "firaw-msgfmt-test.mo") "po\da\kdenlive.po"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $env:RUNNER_TEMP "firaw-msgfmt-test.mo"))) {
+            throw "Craft's absolute msgfmt path did not compile a translation."
+          }
 
       - name: Pin Craft to this public source commit
         shell: pwsh
@@ -150,6 +161,7 @@ jobs:
       - name: Build Kdenlive and all required runtime files
         shell: pwsh
         run: |
+          $env:PATH = "$env:RUNNER_TEMP\firaw-gettext-tools;$env:CRAFT_ROOT\msys\usr\bin;$env:PATH"
           $expectedMsgfmt = Join-Path $env:RUNNER_TEMP "firaw-gettext-tools\msgfmt.cmd"
           $resolvedMsgfmt = (Get-Command msgfmt -ErrorAction Stop).Source
           if (-not [string]::Equals($resolvedMsgfmt, $expectedMsgfmt, [StringComparison]::OrdinalIgnoreCase)) {
