@@ -10,8 +10,8 @@ arquivos são copiados para o **`10.81.66.7`** (`/opt/firawynix-kdenlive-site/`)
 de onde a sincronização do espelho os leva ao `.10`. `dist/index.html` é cópia
 exata de `index.html`. Consulte `deploy/README.md` para o passo a passo.
 
-O rodapé fica preso ao pé da tela (como o do FirawSelector) com baixar o
-instalador (`releases/latest/download/...`, sempre a versão mais recente), os dois
+O rodapé fica preso ao pé da tela (como o do FirawSelector) com o instalador
+online x64 assinado (`downloads/Firawynix-Kdenlive-Instalador-Online.exe`), os dois
 repositórios e o botão Apoiar (`firawynix.com.br/apoie?de=kdenlive`).
 
 Os links de autoria apontam tanto para o projeto original
