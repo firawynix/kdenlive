@@ -1677,6 +1677,24 @@
            <min>10</min>
            <max>100</max>
        </entry>
+       <entry name="aiCpuPercent" type="Int">
+           <label>CPU budget for local AI editing work</label>
+           <default>80</default>
+           <min>10</min>
+           <max>100</max>
+       </entry>
+       <entry name="aiGpuPercent" type="Int">
+           <label>GPU acceleration and VRAM budget for local AI editing work; zero disables GPU use</label>
+           <default>80</default>
+           <min>0</min>
+           <max>100</max>
+       </entry>
+       <entry name="aiMemoryPercent" type="Int">
+           <label>System memory budget for local AI editing work</label>
+           <default>80</default>
+           <min>10</min>
+           <max>100</max>
+       </entry>
        <entry name="aiCpuThreads" type="Int">
            <label>CPU thread override for local AI editing work, or zero for automatic</label>
            <default>0</default>

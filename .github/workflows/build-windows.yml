@@ -189,7 +189,7 @@ jobs:
       - name: Create the Firawynix installer
         shell: pwsh
         run: |
-          & .\packaging\windows\build-installer.ps1 -Version "${{ steps.metadata.outputs.version }}" -BuildDirectory "${{ steps.metadata.outputs.build_directory }}" -CraftRoot $env:CRAFT_ROOT
+          & .\packaging\windows\build-installer.ps1 -Version "${{ steps.metadata.outputs.version }}" -BuildDirectory "${{ steps.metadata.outputs.build_directory }}" -CraftRoot $env:CRAFT_ROOT -PublicBuild
 
       - name: Record source and artifact provenance
         shell: pwsh

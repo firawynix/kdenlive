@@ -63,6 +63,16 @@ int PersonRetimePlanner::targetDurationFrames(const QString &instruction, double
     return frames > 0 && frames <= std::numeric_limits<int>::max() ? int(frames) : -1;
 }
 
+bool PersonRetimePlanner::isPersonAwareFastMotionInstruction(const QString &instruction)
+{
+    const QString text = instruction.simplified();
+    const QRegularExpression person(QStringLiteral(R"(\b(pessoas?|person|people)\b)"),
+                                    QRegularExpression::CaseInsensitiveOption | QRegularExpression::UseUnicodePropertiesOption);
+    const QRegularExpression speed(QStringLiteral(R"((fast\s*motion|aceler\w*|speed\s*up|reduz\w*\s+(?:o\s+)?v[ií]deo|compress\w*))"),
+                                   QRegularExpression::CaseInsensitiveOption | QRegularExpression::UseUnicodePropertiesOption);
+    return person.match(text).hasMatch() && speed.match(text).hasMatch();
+}
+
 QVector<VisualFrameRange> PersonRetimePlanner::normalizeDetections(const QVector<int> &detectedFrames, int sampleStepFrames, int paddingFrames,
                                                                    int mergeGapFrames, int timelineFrames)
 {
@@ -86,6 +96,78 @@ QVector<VisualFrameRange> PersonRetimePlanner::normalizeDetections(const QVector
         }
     }
     return result;
+}
+
+QVector<VisualFrameRange> PersonRetimePlanner::combinedProtectedRanges(const QVector<VisualFrameRange> &personRanges, const EditPlan &semanticPlan,
+                                                                       int timelineFrames)
+{
+    QVector<VisualFrameRange> ranges;
+    ranges.reserve(personRanges.size() + semanticPlan.operations.size());
+    for (const VisualFrameRange &range : personRanges) {
+        const int start = qBound(0, range.startFrame, timelineFrames);
+        const int end = qBound(start, range.endFrame, timelineFrames);
+        if (end > start) {
+            ranges.push_back({start, end});
+        }
+    }
+    for (const EditOperation &operation : semanticPlan.operations) {
+        const int start = qBound(0, operation.startFrame(), timelineFrames);
+        const int end = qBound(start, operation.endFrame(), timelineFrames);
+        if (end > start) {
+            ranges.push_back({start, end});
+        }
+    }
+    std::sort(ranges.begin(), ranges.end(), [](const VisualFrameRange &left, const VisualFrameRange &right) {
+        return left.startFrame == right.startFrame ? left.endFrame < right.endFrame : left.startFrame < right.startFrame;
+    });
+    QVector<VisualFrameRange> merged;
+    for (const VisualFrameRange &range : std::as_const(ranges)) {
+        if (!merged.isEmpty() && range.startFrame <= merged.last().endFrame) {
+            merged.last().endFrame = qMax(merged.last().endFrame, range.endFrame);
+        } else {
+            merged.push_back(range);
+        }
+    }
+    return merged;
+}
+
+EditPlan PersonRetimePlanner::withoutPersonRetimeConflicts(const EditPlan &semanticPlan, const QVector<VisualFrameRange> &personRanges,
+                                                            int *skippedOperations)
+{
+    EditPlan filtered;
+    filtered.version = semanticPlan.version;
+    int skipped = 0;
+    for (const EditOperation &operation : semanticPlan.operations) {
+        bool conflicts = false;
+        if (operation.type == EditOperationType::RetimeRange) {
+            for (const VisualFrameRange &person : personRanges) {
+                if (operation.startFrame() < person.endFrame && person.startFrame < operation.endFrame()) {
+                    conflicts = true;
+                    break;
+                }
+            }
+        }
+        if (conflicts) {
+            ++skipped;
+        } else {
+            filtered.operations.push_back(operation);
+        }
+    }
+    if (skippedOperations) {
+        *skippedOperations = skipped;
+    }
+    return filtered;
+}
+
+int PersonRetimePlanner::retimeReductionFrames(const EditPlan &plan)
+{
+    qint64 reduction = 0;
+    for (const EditOperation &operation : plan.operations) {
+        if (operation.type == EditOperationType::RetimeRange) {
+            reduction += qMax(0, operation.retimeRange.endFrame - operation.retimeRange.startFrame - operation.retimeRange.targetDurationFrames);
+        }
+    }
+    return int(qMin<qint64>(reduction, std::numeric_limits<int>::max()));
 }
 
 int PersonRetimePlanner::minimumTargetDurationFrames(int timelineFrames, const QVector<int> &editableDurations)

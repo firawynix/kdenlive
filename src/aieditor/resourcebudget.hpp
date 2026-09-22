@@ -13,7 +13,9 @@ namespace AiEditor {
 
 struct ResourceBudget
 {
-    int percent{80};
+    int cpuPercent{80};
+    int gpuPercent{80};
+    int memoryPercent{80};
     int cpuThreads{1};
     quint64 memoryLimitBytes{0};
     QString device{QStringLiteral("cpu")};
@@ -21,6 +23,7 @@ struct ResourceBudget
     static int logicalCpuCount();
     static quint64 totalMemoryBytes();
     static bool cudaHardwareLikelyAvailable();
+    static bool gpuHardwareLikelyAvailable();
     static ResourceBudget fromSettings();
 
     // Returns an opaque native job handle when the platform supports a memory

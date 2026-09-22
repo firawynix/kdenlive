@@ -69,7 +69,8 @@ public:
     static QString defaultModel(AiProvider provider);
     static BuiltAiRequest buildConnectionTestRequest(AiProvider provider, const QByteArray &apiKey);
     static BuiltAiRequest buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
-                                       double fps, const QString &transcript = QString(), bool allowEmptyPlan = false);
+                                       double fps, const QString &transcript = QString(), const QString &visualContext = QString(),
+                                       bool allowEmptyPlan = false);
     static BuiltAiRequest buildPromptSuggestionRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &context,
                                                        bool consolidate = false);
     static QByteArray normalizeLocalPlan(const QByteArray &planJson);
@@ -80,7 +81,7 @@ public:
 
     bool isBusy() const;
     void requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
-                     const QString &transcript = QString(), bool allowEmptyPlan = false);
+                     const QString &transcript = QString(), const QString &visualContext = QString(), bool allowEmptyPlan = false);
     void requestPromptSuggestions(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &context, bool consolidate = false);
     void testConnection(AiProvider provider, const QByteArray &apiKey);
     void cancel();

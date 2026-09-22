@@ -1,35 +1,37 @@
-# Distribuição do Firawynix - Kdenlive para Windows
+# Firawynix Kdenlive for Windows
 
-O instalador usa Inno Setup e inclui um launcher que verifica a versão mais
-recente publicada em `firawynix/kdenlive` antes de abrir o editor. O download
-de atualização só é aceito quando o release contém estes dois arquivos:
+The Windows installer supports x64 only. It includes an offline KDE Craft
+runtime, the Firawynix editor, local AI components, and a launcher. The
+launcher checks the same update feed that Firawynix Center uses:
 
-- `Firawynix-Kdenlive-Setup-x64.exe`
-- `Firawynix-Kdenlive-Setup-x64.exe.sha256`
+`https://jogos.firawynix.com.br/api/games/kdenlive/windows/atualizacao.json`
 
-O launcher compara a tag do último GitHub Release com sua versão incorporada,
-baixa o instalador em `%LOCALAPPDATA%\Firawynix-Kdenlive\updates`, valida
-SHA-256 e só então solicita a instalação. Sem rede, sem release ou sem hash, o
-editor instalado abre normalmente.
+When a newer version is available, the launcher asks before downloading it to
+`%LOCALAPPDATA%\Firawynix-Kdenlive\updates`. It accepts only the expected
+HTTPS package URL, size, SHA-256 hash, and Firawynix signer certificate. If
+the check fails or the user declines, the installed editor opens normally.
+Store-packaged installations skip this external updater and rely on Store
+updates.
 
-Para produzir uma versão, execute `build-installer.ps1` após compilar o alvo
-`kdenlive`. O script monta um pacote portátil com todas as dependências via KDE
-Craft, substitui o executável pelo fork compilado, acrescenta o launcher e gera
-o instalador e o arquivo de hash em `dist/windows`.
+The individual website installer and Firawynix Center use the same Windows
+x64 package URL. Keep the package and catalog version in sync when publishing
+an update. Do not publish an x86 package: this distribution has no x86 build.
 
-O projeto continua sob GPL e preserva os créditos do Kdenlive. O repositório
-original é <https://github.com/KDE/kdenlive> e o fork Firawynix é
-<https://github.com/firawynix/kdenlive>.
+To build the signed local package, compile the `kdenlive` target and its local
+AI helper, then run `packaging/windows/build-installer.ps1` with the matching
+KDE Craft archive and local model dependencies. The script writes the installer
+and its hash to `dist/windows`. It requires the Firawynix signing certificate
+in the current user's certificate store. Never commit the private key.
 
-## Build público e verificável
+The project remains under the GPL and retains Kdenlive's credits. The
+[upstream project](https://github.com/KDE/kdenlive) and
+[Firawynix fork](https://github.com/firawynix/kdenlive) publish their source.
 
-O workflow `Build Windows installer` executa todo o processo em uma máquina
-Windows limpa do GitHub Actions. Ele instala o KDE Craft a partir do projeto
-oficial, fixa o blueprint no SHA exato que iniciou a execução, compila o fork
-sem usar um binário pré-compilado do Kdenlive e publica o instalador sem
-assinatura como artefato do próprio job.
+## Public, verifiable build
 
-Cada artefato inclui `provenance.json`, com repositório, commit, referência do
-workflow, URL da execução, versão e SHA-256. A assinatura de produção será uma
-etapa posterior do SignPath; chaves privadas nunca ficam no repositório nem no
-runner do GitHub.
+The `Build Windows installer` workflow builds the fork on a clean GitHub
+Actions Windows runner with KDE Craft. It pins the blueprint to the triggering
+commit, compiles from source, and publishes an unsigned installer artifact.
+Its `provenance.json` identifies the repository, commit, workflow run, version,
+and SHA-256. Production signing through SignPath is a separate step; the
+private signing key does not belong in this repository or on the runner.

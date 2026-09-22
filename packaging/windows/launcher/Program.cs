@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 
 namespace Firawynix.Kdenlive.Launcher;
@@ -17,7 +19,12 @@ internal static class Program
 
 internal sealed class LauncherForm : Form
 {
-    private const string ReleasesApi = "https://api.github.com/repos/firawynix/kdenlive/releases/latest";
+    private const string UpdateFeed = "https://jogos.firawynix.com.br/api/games/kdenlive/windows/atualizacao.json";
+    private const string PackagePath = "/api/games/kdenlive/windows/x64/arquivo";
+    private const string SignerThumbprint = "9A2EFF2483185C9A900F2797D7A9CBD5E8A12893";
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetCurrentPackageFullName(ref int packageFullNameLength, nint packageFullName);
     private readonly string[] _arguments;
     private readonly CancellationTokenSource _cancellation = new();
     private readonly Label _status = new();
@@ -70,19 +77,21 @@ internal sealed class LauncherForm : Form
 
     private async Task CheckAndLaunchAsync()
     {
-        if (Environment.GetCommandLineArgs().Any(argument => argument.Equals("--no-update", StringComparison.OrdinalIgnoreCase))) {
+        if (Environment.GetCommandLineArgs().Any(argument => argument.Equals("--no-update", StringComparison.OrdinalIgnoreCase)) || IsStorePackage()) {
             LaunchEditor();
             return;
         }
 
         try {
-            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
+            using var client = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("Firawynix-Kdenlive-Launcher/1.0");
-            using var response = await client.GetAsync(ReleasesApi, _cancellation.Token);
+            using var feedTimeout = CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token);
+            feedTimeout.CancelAfter(TimeSpan.FromSeconds(20));
+            using var response = await client.GetAsync(UpdateFeed, feedTimeout.Token);
             response.EnsureSuccessStatusCode();
-            using var release = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(_cancellation.Token));
-            var root = release.RootElement;
-            string tag = root.GetProperty("tag_name").GetString() ?? string.Empty;
+            using var feed = JsonDocument.Parse(await response.Content.ReadAsStreamAsync(feedTimeout.Token));
+            var root = feed.RootElement;
+            string tag = root.GetProperty("version").GetString() ?? string.Empty;
             string current = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "0";
             if (CompareVersions(tag, current) <= 0) {
                 SetStatus("Você já está na versão mais recente.");
@@ -91,25 +100,18 @@ internal sealed class LauncherForm : Form
                 return;
             }
 
-            var assets = root.GetProperty("assets").EnumerateArray().ToArray();
-            var installer = assets.FirstOrDefault(asset => {
-                string name = asset.GetProperty("name").GetString() ?? string.Empty;
-                return name.StartsWith("Firawynix-Kdenlive-Setup", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
-            });
-            if (installer.ValueKind == JsonValueKind.Undefined) {
-                LaunchEditor();
-                return;
-            }
-
-            var checksum = assets.FirstOrDefault(asset => {
-                string name = asset.GetProperty("name").GetString() ?? string.Empty;
-                return name.Equals((installer.GetProperty("name").GetString() ?? string.Empty) + ".sha256", StringComparison.OrdinalIgnoreCase);
-            });
-            if (checksum.ValueKind == JsonValueKind.Undefined) {
-                SetStatus("A atualização não possui assinatura de integridade. Abrindo a versão instalada.");
-                await Task.Delay(1200, _cancellation.Token);
-                LaunchEditor();
-                return;
+            var package = root.GetProperty("architectures").GetProperty("x64");
+            string url = package.GetProperty("url").GetString() ?? string.Empty;
+            string expectedHash = package.GetProperty("sha256").GetString() ?? string.Empty;
+            long expectedSize = package.GetProperty("size").GetInt64();
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var packageUri) ||
+                packageUri.Scheme != Uri.UriSchemeHttps ||
+                packageUri.Host != "jogos.firawynix.com.br" ||
+                packageUri.AbsolutePath != PackagePath ||
+                expectedHash.Length != 64 ||
+                !expectedHash.All(Uri.IsHexDigit) ||
+                expectedSize <= 0) {
+                throw new InvalidDataException("O manifesto da atualização é inválido.");
             }
 
             DialogResult choice = MessageBox.Show(this,
@@ -122,25 +124,30 @@ internal sealed class LauncherForm : Form
 
             string updateFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Firawynix-Kdenlive", "updates");
             Directory.CreateDirectory(updateFolder);
-            string fileName = installer.GetProperty("name").GetString()!;
-            string installerPath = Path.Combine(updateFolder, fileName);
-            string checksumText = await client.GetStringAsync(checksum.GetProperty("browser_download_url").GetString()!, _cancellation.Token);
-            string expectedHash = checksumText.Split([' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
-            if (expectedHash.Length != 64) {
-                throw new InvalidDataException("O arquivo de verificação da atualização é inválido.");
-            }
+            string installerPath = Path.Combine(updateFolder, "Firawynix-Kdenlive-Setup-x64.exe");
 
             SetStatus($"Baixando {tag}…");
-            await DownloadAsync(client, installer.GetProperty("browser_download_url").GetString()!, installerPath, _cancellation.Token);
+            await DownloadAsync(client, url, installerPath, expectedSize, _cancellation.Token);
             SetStatus("Verificando a integridade da atualização…");
-            await using var stream = File.OpenRead(installerPath);
-            string actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, _cancellation.Token));
+            if (new FileInfo(installerPath).Length != expectedSize) {
+                File.Delete(installerPath);
+                throw new InvalidDataException("O tamanho da atualização não corresponde ao manifesto.");
+            }
+            string actualHash;
+            await using (var stream = File.OpenRead(installerPath)) {
+                actualHash = Convert.ToHexString(await SHA256.HashDataAsync(stream, _cancellation.Token));
+            }
             if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase)) {
                 File.Delete(installerPath);
                 throw new InvalidDataException("A atualização baixada não passou na verificação de integridade.");
             }
+            using var signer = new X509Certificate2(X509Certificate.CreateFromSignedFile(installerPath));
+            if (!signer.Thumbprint.Equals(SignerThumbprint, StringComparison.OrdinalIgnoreCase)) {
+                File.Delete(installerPath);
+                throw new InvalidDataException("A atualização não foi assinada pela Firawynix.");
+            }
 
-            Process.Start(new ProcessStartInfo(installerPath, "/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(installerPath, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-") { UseShellExecute = true });
             _launched = true;
             Close();
         } catch (OperationCanceledException) {
@@ -155,11 +162,14 @@ internal sealed class LauncherForm : Form
         }
     }
 
-    private async Task DownloadAsync(HttpClient client, string url, string destination, CancellationToken cancellationToken)
+    private async Task DownloadAsync(HttpClient client, string url, string destination, long expectedSize, CancellationToken cancellationToken)
     {
         using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         response.EnsureSuccessStatusCode();
-        long total = response.Content.Headers.ContentLength ?? 0;
+        long total = response.Content.Headers.ContentLength ?? expectedSize;
+        if (total != expectedSize) {
+            throw new InvalidDataException("O tamanho anunciado para a atualização não corresponde ao manifesto.");
+        }
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken);
         await using var output = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 128, true);
         byte[] buffer = new byte[1024 * 128];
@@ -168,6 +178,9 @@ internal sealed class LauncherForm : Form
         while ((read = await source.ReadAsync(buffer, cancellationToken)) > 0) {
             await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             received += read;
+            if (received > expectedSize) {
+                throw new InvalidDataException("A atualização excedeu o tamanho esperado.");
+            }
             if (total > 0) {
                 int percent = (int)Math.Clamp(received * 100 / total, 0, 100);
                 BeginInvoke(() => {
@@ -223,4 +236,10 @@ internal sealed class LauncherForm : Form
 
     private static int[] ExtractVersion(string value) =>
         System.Text.RegularExpressions.Regex.Matches(value, "\\d+").Select(match => int.Parse(match.Value)).ToArray();
+
+    private static bool IsStorePackage()
+    {
+        int length = 0;
+        return OperatingSystem.IsWindows() && GetCurrentPackageFullName(ref length, 0) == 122;
+    }
 }

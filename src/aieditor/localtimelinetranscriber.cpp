@@ -11,6 +11,8 @@
 #include "timeline2/model/timelineitemmodel.hpp"
 
 #include <KLocalizedString>
+#include <QCoreApplication>
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QProcessEnvironment>
@@ -57,19 +59,48 @@ bool LocalTimelineTranscriber::canManageModels()
     return !m_whisper->venvPythonExecs().python.isEmpty() && !m_whisper->subtitleScript().isEmpty();
 }
 
+QString LocalTimelineTranscriber::whisperCppExecutable() const
+{
+    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("ai/whisper/whisper-cli.exe"));
+}
+
+QString LocalTimelineTranscriber::whisperCppModel() const
+{
+    return QDir(QCoreApplication::applicationDirPath()).filePath(QStringLiteral("ai/whisper/models/ggml-small.bin"));
+}
+
+bool LocalTimelineTranscriber::gpuEngineReady() const
+{
+    const QFileInfo engine(whisperCppExecutable());
+    const QFileInfo model(whisperCppModel());
+    return engine.isFile() && engine.size() > 0 && model.isFile() && model.size() > 0;
+}
+
+QString LocalTimelineTranscriber::gpuEngineDescription() const
+{
+    return gpuEngineReady() ? i18n("Whisper.cpp Small with cross-vendor Vulkan GPU acceleration") : QString();
+}
+
 QStringList LocalTimelineTranscriber::installedModels()
 {
-    return m_whisper->getInstalledModels();
+    QStringList models = m_whisper->getInstalledModels();
+    if (gpuEngineReady()) {
+        models.prepend(QStringLiteral("small-vulkan"));
+    }
+    return models;
 }
 
 QString LocalTimelineTranscriber::activeModel()
 {
-    return selectAvailableModel(KdenliveSettings::whisperModel(), installedModels());
+    if (gpuEngineReady()) {
+        return QStringLiteral("small-vulkan");
+    }
+    return selectAvailableModel(KdenliveSettings::whisperModel(), m_whisper->getInstalledModels());
 }
 
 bool LocalTimelineTranscriber::isReady()
 {
-    return canManageModels() && !activeModel().isEmpty();
+    return gpuEngineReady() || (canManageModels() && !activeModel().isEmpty());
 }
 
 void LocalTimelineTranscriber::manageModels(QWidget *parent)
@@ -99,15 +130,17 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
         return;
     }
 
+    m_budget = ResourceBudget::fromSettings();
     const auto python = m_whisper->venvPythonExecs().python;
     const QString configuredModel = KdenliveSettings::whisperModel();
-    m_model = selectAvailableModel(configuredModel, m_whisper->getInstalledModels());
-    if (python.isEmpty() || m_whisper->subtitleScript().isEmpty() || m_model.isEmpty()) {
+    m_useWhisperCpp = gpuEngineReady();
+    m_model = m_useWhisperCpp ? QStringLiteral("small-vulkan") : selectAvailableModel(configuredModel, m_whisper->getInstalledModels());
+    if (!m_useWhisperCpp && (python.isEmpty() || m_whisper->subtitleScript().isEmpty() || m_model.isEmpty())) {
         Q_EMIT errorOccurred(
             i18n("Local speech recognition is not ready. Open Settings > Configure Kdenlive > Plugins, install Whisper and a model, then try again."));
         return;
     }
-    if (m_model != configuredModel) {
+    if (!m_useWhisperCpp && m_model != configuredModel) {
         KdenliveSettings::setWhisperModel(m_model);
         Q_EMIT statusChanged(i18n("Using the installed Whisper model “%1” automatically.", m_model));
     }
@@ -121,7 +154,6 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
     Q_EMIT busyChanged(true);
     m_cancelRequested = false;
     m_fps = fps;
-    m_budget = ResourceBudget::fromSettings();
     const QString scenePath = m_tempDir->filePath(QStringLiteral("timeline.mlt"));
     m_audioPath = m_tempDir->filePath(QStringLiteral("timeline.wav"));
     m_srtPath = m_tempDir->filePath(QStringLiteral("timeline.srt"));
@@ -169,14 +201,43 @@ void LocalTimelineTranscriber::start(const std::shared_ptr<TimelineItemModel> &t
 
 void LocalTimelineTranscriber::startWhisper()
 {
-    Q_EMIT statusChanged(i18n("Transcribing locally with Whisper. This may take several minutes…"));
+    const bool useGpu = m_budget.device != QLatin1String("cpu") && m_budget.gpuPercent > 0;
+    Q_EMIT statusChanged(m_useWhisperCpp ? (useGpu ? i18n("Transcribing locally with Whisper.cpp on the GPU. This may take several minutes…")
+                                                : i18n("Transcribing locally with Whisper.cpp on the CPU. This may take several minutes…"))
+                                        : i18n("Transcribing locally with Whisper. This may take several minutes…"));
+    if (m_useWhisperCpp) {
+        const QString outputPrefix = m_srtPath.left(m_srtPath.size() - 4);
+        QStringList arguments{QStringLiteral("-m"), whisperCppModel(), QStringLiteral("-f"), m_audioPath, QStringLiteral("-of"), outputPrefix,
+                              QStringLiteral("-osrt"), QStringLiteral("--print-progress"), QStringLiteral("-t"), QString::number(m_budget.cpuThreads)};
+        const QString language = KdenliveSettings::whisperLanguage().simplified();
+        if (!language.isEmpty()) {
+            arguments << QStringLiteral("-l") << language;
+        }
+        if (!useGpu) {
+            arguments << QStringLiteral("--no-gpu");
+        }
+        m_phase = Phase::Transcribe;
+        beginProgressPhase(useGpu ? i18n("Transcribing locally with Whisper.cpp GPU") : i18n("Transcribing locally with Whisper.cpp CPU"));
+        configureProcessEnvironment();
+        m_process->start(whisperCppExecutable(), arguments);
+        if (!m_process->waitForStarted(5000)) {
+            const QString error = m_process->errorString();
+            reset();
+            Q_EMIT busyChanged(false);
+            Q_EMIT errorOccurred(i18n("Whisper.cpp could not be started: %1", error));
+        } else {
+            applyNativeBudget();
+        }
+        return;
+    }
     QStringList arguments{m_whisper->subtitleScript(), m_audioPath, m_model, QStringLiteral("ffmpeg_path=%1").arg(KdenliveSettings::ffmpegpath())};
     const QString language = KdenliveSettings::whisperLanguage().simplified();
     if (!language.isEmpty()) {
         arguments << QStringLiteral("language=%1").arg(language);
     }
-    arguments << QStringLiteral("device=%1").arg(m_budget.device);
-    if (KdenliveSettings::whisperDisableFP16() || m_budget.device == QLatin1String("cpu")) {
+    const QString pythonDevice = m_budget.device == QLatin1String("cuda") ? QStringLiteral("cuda") : QStringLiteral("cpu");
+    arguments << QStringLiteral("device=%1").arg(pythonDevice);
+    if (KdenliveSettings::whisperDisableFP16() || pythonDevice == QLatin1String("cpu")) {
         arguments << QStringLiteral("fp16=False");
     }
     m_phase = Phase::Transcribe;
@@ -240,7 +301,8 @@ QString LocalTimelineTranscriber::selectAvailableModel(const QString &configured
 int LocalTimelineTranscriber::parseProgressPercent(const QByteArray &output, bool whisperPhase)
 {
     const QString text = QString::fromUtf8(output);
-    const QRegularExpression expression(whisperPhase ? QStringLiteral(R"((\d{1,3})%\|)") : QStringLiteral(R"(percentage:\s*(\d{1,3}))"),
+    const QRegularExpression expression(whisperPhase ? QStringLiteral(R"((?:progress\s*=\s*|\b)(\d{1,3})%(?:\||\b)?)")
+                                                     : QStringLiteral(R"(percentage:\s*(\d{1,3}))"),
                                         QRegularExpression::CaseInsensitiveOption);
     int percent = -1;
     auto matches = expression.globalMatch(text);
@@ -360,7 +422,8 @@ void LocalTimelineTranscriber::configureProcessEnvironment()
     environment.insert(QStringLiteral("OMP_NUM_THREADS"), threads);
     environment.insert(QStringLiteral("MKL_NUM_THREADS"), threads);
     environment.insert(QStringLiteral("OPENBLAS_NUM_THREADS"), threads);
-    environment.insert(QStringLiteral("KDENLIVE_AI_MEMORY_FRACTION"), QString::number(double(m_budget.percent) / 100.0, 'f', 2));
+    environment.insert(QStringLiteral("KDENLIVE_AI_MEMORY_FRACTION"), QString::number(double(m_budget.memoryPercent) / 100.0, 'f', 2));
+    environment.insert(QStringLiteral("KDENLIVE_AI_GPU_FRACTION"), QString::number(double(m_budget.gpuPercent) / 100.0, 'f', 2));
     m_process->setProcessEnvironment(environment);
 }
 
@@ -388,6 +451,7 @@ void LocalTimelineTranscriber::reset()
     m_processOutput.clear();
     m_progressPhase.clear();
     m_lastProgress = -1;
+    m_useWhisperCpp = false;
     m_tempDir.reset();
 }
 

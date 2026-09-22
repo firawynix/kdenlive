@@ -8,6 +8,7 @@
 #include "aiproviderclient.hpp"
 #include "aisessionstore.hpp"
 #include "editplanexecutor.hpp"
+#include "personretimeplanner.hpp"
 
 #include <QElapsedTimer>
 #include <QWidget>
@@ -64,6 +65,10 @@ private:
     void finishPromptSuggestions(const QVector<PromptSuggestion> &suggestions);
     void generatePlan();
     void handleVisualAnalysis(const LocalVisionResult &result);
+    bool validateProviderConfiguration();
+    void startTranscriptPlanAnalysis();
+    void presentGeneratedPlan(const QByteArray &planJson);
+    void showCombinedPlan(const QByteArray &semanticPlanJson);
     void requestProviderPlan(const QString &transcript = QString(), const QString &timelineFingerprint = QString());
     void requestNextTranscriptChunk();
     void retryWithSmallerTranscriptChunks(const QString &message);
@@ -109,7 +114,9 @@ private:
     QLabel *m_visualHardware{nullptr};
     QLabel *m_visualStatus{nullptr};
     QPushButton *m_visualSetup{nullptr};
-    QSlider *m_performance{nullptr};
+    QSlider *m_cpuBudget{nullptr};
+    QSlider *m_gpuBudget{nullptr};
+    QSlider *m_memoryBudget{nullptr};
     QLabel *m_performanceSummary{nullptr};
     QSpinBox *m_cpuThreads{nullptr};
     QComboBox *m_processingDevice{nullptr};
@@ -145,6 +152,11 @@ private:
     QElapsedTimer m_providerTimer;
     int m_providerStartChunk{0};
     int m_pendingVisualTargetFrames{-1};
+    bool m_combinedAnalysis{false};
+    QVector<VisualFrameRange> m_pendingPersonRanges;
+    QString m_pendingVisualBackend;
+    QString m_pendingVisualContext;
+    QString m_pendingVisualFingerprint;
     enum class TranscriptionPurpose { EditPlan, PromptSuggestions };
     TranscriptionPurpose m_transcriptionPurpose{TranscriptionPurpose::EditPlan};
     QVector<TranscriptChunk> m_suggestionChunks;

@@ -25,6 +25,7 @@ compile_commands.json
 kde-ci-reports/*
 
 # Firawynix local distribution artifacts
+/dist/
 /dist/windows/stage/
 /dist/windows/launcher/
 /dist/windows/*.exe

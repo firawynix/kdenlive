@@ -282,10 +282,12 @@ void LocalVisionAnalyzer::start(const std::shared_ptr<TimelineItemModel> &timeli
     environment.insert(QStringLiteral("OMP_NUM_THREADS"), QString::number(m_budget.cpuThreads));
     environment.insert(QStringLiteral("OPENCV_FOR_THREADS_NUM"), QString::number(m_budget.cpuThreads));
     m_process->setProcessEnvironment(environment);
+    const QString visionDevice = m_budget.device == QLatin1String("cuda") ? QStringLiteral("cuda")
+                                 : m_budget.device == QLatin1String("cpu") ? QStringLiteral("cpu")
+                                                                          : QStringLiteral("auto");
     m_process->start(helperExecutable(), {QStringLiteral("--scene"), scenePath, QStringLiteral("--model"), modelPath(), QStringLiteral("--output"),
                                           m_outputPath, QStringLiteral("--sample-step"), QString::number(m_sampleStepFrames),
-                                          QStringLiteral("--timeline-frames"), QString::number(timeline->duration()), QStringLiteral("--device"),
-                                          m_budget.device == QLatin1String("cuda") ? QStringLiteral("cuda") : QStringLiteral("auto")});
+                                          QStringLiteral("--timeline-frames"), QString::number(timeline->duration()), QStringLiteral("--device"), visionDevice});
     if (!m_process->waitForStarted(5000)) {
         const QString error = m_process->errorString();
         resetAnalysis();

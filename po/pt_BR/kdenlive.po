@@ -49062,3 +49062,102 @@ msgstr "Detector local de pessoas verificado"
 
 msgid "The best compatible local person detector is installed, verified, and ready."
 msgstr "O melhor detector local de pessoas compatível está instalado, verificado e pronto."
+#: src/aieditor/assistantdock.cpp
+msgid "CPU budget:"
+msgstr "Limite de CPU:"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Zero disables GPU acceleration. Other values are a best-effort VRAM and offload budget; some AI backends only support on or off."
+msgstr "Zero desativa a aceleração por GPU. Os demais valores definem um limite aproximado de VRAM e processamento transferido; alguns mecanismos de IA aceitam apenas ligado ou desligado."
+
+#: src/aieditor/assistantdock.cpp
+msgid "GPU / VRAM budget:"
+msgstr "Limite de GPU / VRAM:"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Memory budget:"
+msgstr "Limite de memória RAM:"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Automatic (GPU when supported)"
+msgstr "Automático (GPU quando compatível)"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Cross-vendor GPU (OpenCL / Vulkan)"
+msgstr "GPU de qualquer fabricante (OpenCL / Vulkan)"
+
+#: src/aieditor/assistantdock.cpp
+msgid "%1 is ready. Active model: %2. Installed models: %3."
+msgstr "%1 está pronto. Modelo ativo: %2. Modelos instalados: %3."
+
+#: src/aieditor/assistantdock.cpp
+msgid "CPU: %1% (%2 of %3 threads) · GPU/VRAM: %4% best effort · memory: %5% (up to %6 GiB)"
+msgstr "CPU: %1% (%2 de %3 threads) · GPU/VRAM: %4% aproximado · memória RAM: %5% (até %6 GiB)"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Visual analysis completed and saved. Preparing the local transcript for the combined plan…"
+msgstr "Análise visual concluída e salva. Preparando a transcrição local para o plano combinado…"
+
+#: src/aieditor/assistantdock.cpp
+msgid "The transcript plan cannot be combined safely: %1 Progress remains saved."
+msgstr "O plano da transcrição não pode ser combinado com segurança: %1 O progresso continua salvo."
+
+#: src/aieditor/assistantdock.cpp
+msgid "The transcript edits alone would make the result shorter than the requested final duration. Increase the final duration or request less acceleration. Both completed local analyses remain saved."
+msgstr "Somente as edições da transcrição deixariam o resultado menor que a duração final solicitada. Aumente a duração final ou solicite menos aceleração. As duas análises locais concluídas continuam salvas."
+
+#: src/aieditor/assistantdock.cpp
+msgid "The audio and visual analyses finished, but their safe edit ranges could not reach the requested duration: %1 Both analyses remain saved."
+msgstr "As análises de áudio e de vídeo terminaram, mas os intervalos seguros não conseguiram atingir a duração solicitada: %1 As duas análises continuam salvas."
+
+#: src/aieditor/assistantdock.cpp
+msgid "Combined audio and visual plan ready using %1. %2 person intervals were protected and %3 conflicting transcript speed edits were skipped. Review, then choose Apply."
+msgstr "Plano combinado de áudio e vídeo pronto usando %1. Os %2 intervalos com pessoas foram protegidos e %3 acelerações conflitantes da transcrição foram ignoradas. Revise e escolha Aplicar."
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Whisper.cpp Small with cross-vendor Vulkan GPU acceleration"
+msgstr "Whisper.cpp Small com aceleração Vulkan em GPUs de qualquer fabricante"
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Transcribing locally with Whisper.cpp on the GPU. This may take several minutes…"
+msgstr "Transcrevendo localmente com Whisper.cpp na GPU. Isso pode levar vários minutos…"
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Transcribing locally with Whisper.cpp GPU"
+msgstr "Transcrevendo localmente com Whisper.cpp na GPU"
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Whisper.cpp GPU could not be started: %1"
+msgstr "Não foi possível iniciar o Whisper.cpp na GPU: %1"
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Transcribing locally with Whisper.cpp on the CPU. This may take several minutes…"
+msgstr "Transcrevendo localmente com Whisper.cpp na CPU. Isso pode levar vários minutos…"
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Transcribing locally with Whisper.cpp CPU"
+msgstr "Transcrevendo localmente com Whisper.cpp na CPU"
+
+#: src/aieditor/localtimelinetranscriber.cpp
+msgid "Whisper.cpp could not be started: %1"
+msgstr "Não foi possível iniciar o Whisper.cpp: %1"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Privacy: media files are never uploaded. Whisper and person detection run locally; only your instruction, timeline timing, timestamped transcript, and detected person intervals are sent when enabled. Local resume checkpoints expire after seven days and never contain API keys."
+msgstr "Privacidade: os arquivos de mídia nunca são enviados. O Whisper e a detecção de pessoas funcionam localmente; somente sua instrução, os tempos da linha do tempo, a transcrição com marcações de tempo e os intervalos com pessoas detectadas são enviados quando ativados. Os pontos de retomada locais expiram após sete dias e nunca contêm chaves de API."
+
+#: src/aieditor/assistantdock.cpp
+msgid "Visual analysis completed and saved. Preparing the local transcript for the combined request…"
+msgstr "Análise visual concluída e salva. Preparando a transcrição local para a solicitação combinada…"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Visual analysis completed and saved. Sending the requested visual context to the selected AI…"
+msgstr "Análise visual concluída e salva. Enviando o contexto visual solicitado para a IA selecionada…"
+
+#: src/aieditor/assistantdock.cpp
+msgid "Combined analysis completed using %1 and %2 person intervals. No matching edit was requested or found."
+msgstr "Análise combinada concluída usando %1 e %2 intervalos com pessoas. Nenhuma edição correspondente foi solicitada ou encontrada."
+
+#: src/aieditor/assistantdock.cpp
+msgid "AI plan ready using the requested local audio/visual context and %1 person intervals detected by %2. Review, then choose Apply."
+msgstr "Plano da IA pronto usando o contexto local de áudio/vídeo solicitado e %1 intervalos com pessoas detectados por %2. Revise e escolha Aplicar."

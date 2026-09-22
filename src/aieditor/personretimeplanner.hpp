@@ -37,8 +37,14 @@ class PersonRetimePlanner
 {
 public:
     static int targetDurationFrames(const QString &instruction, double fps);
+    static bool isPersonAwareFastMotionInstruction(const QString &instruction);
     static QVector<VisualFrameRange> normalizeDetections(const QVector<int> &detectedFrames, int sampleStepFrames, int paddingFrames, int mergeGapFrames,
                                                          int timelineFrames);
+    static QVector<VisualFrameRange> combinedProtectedRanges(const QVector<VisualFrameRange> &personRanges, const EditPlan &semanticPlan,
+                                                              int timelineFrames);
+    static EditPlan withoutPersonRetimeConflicts(const EditPlan &semanticPlan, const QVector<VisualFrameRange> &personRanges,
+                                                  int *skippedOperations = nullptr);
+    static int retimeReductionFrames(const EditPlan &plan);
     static int minimumTargetDurationFrames(int timelineFrames, const QVector<int> &editableDurations);
     static QVector<int> allocateTargetDurations(const QVector<int> &sourceDurations, int requiredReduction, QString *error = nullptr);
     static PersonRetimePlanResult build(const std::shared_ptr<TimelineItemModel> &timeline, const QVector<VisualFrameRange> &personRanges, int targetFrames);

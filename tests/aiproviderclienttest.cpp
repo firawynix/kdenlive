@@ -81,6 +81,20 @@ TEST_CASE("AI provider sends transcript text without media", "[AIEditor][Provide
     REQUIRE_FALSE(message.contains(QStringLiteral("data:")));
 }
 
+TEST_CASE("AI provider sends local visual observations without media", "[AIEditor][Provider][Vision]")
+{
+    const auto request = AiProviderClient::buildRequest(AiProvider::OpenRouter, QStringLiteral("test/model"), QByteArrayLiteral("secret"),
+                                                        QStringLiteral("Keep people at normal speed"), 5000, 25.0, QString(),
+                                                        QStringLiteral("[100-250] person_present=true"));
+    REQUIRE(request.isValid());
+    const QJsonObject body = QJsonDocument::fromJson(request.body).object();
+    const QString message = body.value(QStringLiteral("messages")).toArray().at(1).toObject().value(QStringLiteral("content")).toString();
+    REQUIRE(message.contains(QStringLiteral("[100-250] person_present=true")));
+    REQUIRE(message.contains(QStringLiteral("video frames were not uploaded")));
+    REQUIRE_FALSE(message.contains(QStringLiteral("file://")));
+    REQUIRE_FALSE(message.contains(QStringLiteral("data:")));
+}
+
 TEST_CASE("AI provider builds and validates prompt suggestions", "[AIEditor][Provider][Prompts]")
 {
     const auto request =

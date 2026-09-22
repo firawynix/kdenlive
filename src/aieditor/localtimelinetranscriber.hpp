@@ -32,6 +32,8 @@ public:
     bool isBusy() const;
     bool isReady();
     bool canManageModels();
+    bool gpuEngineReady() const;
+    QString gpuEngineDescription() const;
     QStringList installedModels();
     QString activeModel();
     void manageModels(QWidget *parent);
@@ -62,6 +64,8 @@ private:
     void beginProgressPhase(const QString &phase);
     void emitParsedProgress();
     void reset();
+    QString whisperCppExecutable() const;
+    QString whisperCppModel() const;
 
     SpeechToTextWhisper *m_whisper{nullptr};
     QProcess *m_process{nullptr};
@@ -79,6 +83,7 @@ private:
     QElapsedTimer m_phaseTimer;
     QString m_progressPhase;
     int m_lastProgress{-1};
+    bool m_useWhisperCpp{false};
 };
 
 } // namespace AiEditor

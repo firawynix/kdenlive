@@ -56,19 +56,45 @@ bool ResourceBudget::cudaHardwareLikelyAvailable()
     return false;
 }
 
+bool ResourceBudget::gpuHardwareLikelyAvailable()
+{
+#ifdef Q_OS_WIN
+    DISPLAY_DEVICEW device{};
+    device.cb = sizeof(device);
+    for (DWORD index = 0; EnumDisplayDevicesW(nullptr, index, &device, 0); ++index) {
+        const QString description = QString::fromWCharArray(device.DeviceString);
+        if (!description.contains(QStringLiteral("Microsoft"), Qt::CaseInsensitive) &&
+            (description.contains(QStringLiteral("AMD"), Qt::CaseInsensitive) || description.contains(QStringLiteral("Radeon"), Qt::CaseInsensitive) ||
+             description.contains(QStringLiteral("NVIDIA"), Qt::CaseInsensitive) || description.contains(QStringLiteral("Intel"), Qt::CaseInsensitive) ||
+             description.contains(QStringLiteral("Arc"), Qt::CaseInsensitive))) {
+            return true;
+        }
+        device = {};
+        device.cb = sizeof(device);
+    }
+#endif
+    return cudaHardwareLikelyAvailable();
+}
+
 ResourceBudget ResourceBudget::fromSettings()
 {
     ResourceBudget result;
-    result.percent = qBound(10, KdenliveSettings::aiPerformancePercent(), 100);
-    const int automaticThreads = qMax(1, qRound(double(logicalCpuCount()) * double(result.percent) / 100.0));
+    result.cpuPercent = qBound(10, KdenliveSettings::aiCpuPercent(), 100);
+    result.gpuPercent = qBound(0, KdenliveSettings::aiGpuPercent(), 100);
+    result.memoryPercent = qBound(10, KdenliveSettings::aiMemoryPercent(), 100);
+    const int automaticThreads = qMax(1, qRound(double(logicalCpuCount()) * double(result.cpuPercent) / 100.0));
     result.cpuThreads = KdenliveSettings::aiCpuThreads() > 0 ? qBound(1, KdenliveSettings::aiCpuThreads(), logicalCpuCount()) : automaticThreads;
     const quint64 totalMemory = totalMemoryBytes();
-    result.memoryLimitBytes = totalMemory == 0 ? 0 : totalMemory * quint64(result.percent) / 100;
+    result.memoryLimitBytes = totalMemory == 0 ? 0 : totalMemory * quint64(result.memoryPercent) / 100;
     const QString configuredDevice = KdenliveSettings::aiProcessingDevice();
-    if (configuredDevice == QLatin1String("cuda") && cudaHardwareLikelyAvailable()) {
+    if (result.gpuPercent == 0 || configuredDevice == QLatin1String("cpu")) {
+        result.device = QStringLiteral("cpu");
+    } else if (configuredDevice == QLatin1String("cuda") && cudaHardwareLikelyAvailable()) {
         result.device = QStringLiteral("cuda");
-    } else if (configuredDevice == QLatin1String("auto") && KdenliveSettings::whisperDevice() == QLatin1String("cuda") && cudaHardwareLikelyAvailable()) {
+    } else if (configuredDevice == QLatin1String("auto") && cudaHardwareLikelyAvailable()) {
         result.device = QStringLiteral("cuda");
+    } else if ((configuredDevice == QLatin1String("auto") || configuredDevice == QLatin1String("gpu")) && gpuHardwareLikelyAvailable()) {
+        result.device = QStringLiteral("gpu");
     } else {
         result.device = QStringLiteral("cpu");
     }

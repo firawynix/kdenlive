@@ -23,6 +23,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QEventLoop>
 #include <QFormLayout>
 #include <QGridLayout>
@@ -45,6 +46,7 @@
 #include <QSpinBox>
 #include <QTime>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <utility>
 
 namespace Kdenlive {
@@ -56,6 +58,28 @@ constexpr int PromptNeedsTranscriptRole = Qt::UserRole + 2;
 constexpr int PromptNeedsVisionRole = Qt::UserRole + 3;
 constexpr auto OtherLocalModel = "__other_local_model__";
 enum PromptKind { BuiltInPrompt = 0, SavedPrompt = 1, SuggestedPrompt = 2 };
+
+QString personObservationContext(const QVector<VisualFrameRange> &ranges)
+{
+    QStringList observations;
+    observations.reserve(ranges.size());
+    for (const VisualFrameRange &range : ranges) {
+        observations << QStringLiteral("[%1-%2] person_present=true").arg(range.startFrame).arg(range.endFrame);
+    }
+    return observations.join(QLatin1Char('\n'));
+}
+
+QString combinedAnalysisFingerprint(const QString &audioFingerprint, const QString &visualFingerprint)
+{
+    if (visualFingerprint.isEmpty()) {
+        return audioFingerprint;
+    }
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    hash.addData(audioFingerprint.toUtf8());
+    hash.addData(QByteArrayLiteral("\nvisual:"));
+    hash.addData(visualFingerprint.toUtf8());
+    return QString::fromLatin1(hash.result().toHex());
+}
 } // namespace
 
 AssistantDock::AssistantDock(MainWindow *mainWindow)
@@ -112,8 +136,8 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     layout->addWidget(m_credentialButtons);
 
     m_privacy = new QLabel(
-        i18n("Privacy: media files are never uploaded. Whisper runs locally; only the timestamped transcript is sent. Local resume checkpoints expire after "
-             "seven days and never contain API keys."),
+        i18n("Privacy: media files are never uploaded. Whisper and person detection run locally; only your instruction, timeline timing, timestamped "
+             "transcript, and detected person intervals are sent when enabled. Local resume checkpoints expire after seven days and never contain API keys."),
         this);
     m_privacy->setWordWrap(true);
     layout->addWidget(m_privacy);
@@ -153,12 +177,22 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
 
     auto *performanceGroup = new QGroupBox(i18n("Performance"), this);
     auto *performanceLayout = new QFormLayout(performanceGroup);
-    m_performance = new QSlider(Qt::Horizontal, performanceGroup);
-    m_performance->setRange(10, 100);
-    m_performance->setSingleStep(5);
-    m_performance->setPageStep(10);
-    m_performance->setValue(qBound(10, KdenliveSettings::aiPerformancePercent(), 100));
-    performanceLayout->addRow(i18n("Resource budget:"), m_performance);
+    const auto configureBudgetSlider = [](QSlider *slider, int minimum, int value) {
+        slider->setRange(minimum, 100);
+        slider->setSingleStep(5);
+        slider->setPageStep(10);
+        slider->setValue(qBound(minimum, value, 100));
+    };
+    m_cpuBudget = new QSlider(Qt::Horizontal, performanceGroup);
+    configureBudgetSlider(m_cpuBudget, 10, KdenliveSettings::aiCpuPercent());
+    performanceLayout->addRow(i18n("CPU budget:"), m_cpuBudget);
+    m_gpuBudget = new QSlider(Qt::Horizontal, performanceGroup);
+    configureBudgetSlider(m_gpuBudget, 0, KdenliveSettings::aiGpuPercent());
+    m_gpuBudget->setToolTip(i18n("Zero disables GPU acceleration. Other values are a best-effort VRAM and offload budget; some AI backends only support on or off."));
+    performanceLayout->addRow(i18n("GPU / VRAM budget:"), m_gpuBudget);
+    m_memoryBudget = new QSlider(Qt::Horizontal, performanceGroup);
+    configureBudgetSlider(m_memoryBudget, 10, KdenliveSettings::aiMemoryPercent());
+    performanceLayout->addRow(i18n("Memory budget:"), m_memoryBudget);
     m_performanceSummary = new QLabel(performanceGroup);
     m_performanceSummary->setWordWrap(true);
     performanceLayout->addRow(QString(), m_performanceSummary);
@@ -170,12 +204,14 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     performanceLayout->addRow(i18n("CPU threads:"), m_cpuThreads);
 
     m_processingDevice = new QComboBox(performanceGroup);
-    m_processingDevice->addItem(i18n("Automatic (CPU on this system)"), QStringLiteral("auto"));
+    m_processingDevice->addItem(ResourceBudget::gpuHardwareLikelyAvailable() ? i18n("Automatic (GPU when supported)") : i18n("Automatic (CPU on this system)"),
+                                QStringLiteral("auto"));
     m_processingDevice->addItem(i18n("CPU"), QStringLiteral("cpu"));
+    if (ResourceBudget::gpuHardwareLikelyAvailable()) {
+        m_processingDevice->addItem(i18n("Cross-vendor GPU (OpenCL / Vulkan)"), QStringLiteral("gpu"));
+    }
     if (ResourceBudget::cudaHardwareLikelyAvailable()) {
         m_processingDevice->addItem(i18n("NVIDIA CUDA GPU"), QStringLiteral("cuda"));
-    } else {
-        m_processingDevice->setToolTip(i18n("The detected GPU is not compatible with this Whisper CUDA runtime. CPU processing remains available."));
     }
     const int deviceIndex = m_processingDevice->findData(KdenliveSettings::aiProcessingDevice());
     m_processingDevice->setCurrentIndex(deviceIndex < 0 ? 0 : deviceIndex);
@@ -280,8 +316,18 @@ AssistantDock::AssistantDock(MainWindow *mainWindow)
     connect(m_removeKey, &QPushButton::clicked, this, &AssistantDock::removeCredential);
     connect(m_testKey, &QPushButton::clicked, this, &AssistantDock::testCredential);
     connect(m_client, &AiProviderClient::connectionTested, this, [this](bool success, const QString &message) { setStatus(message, !success); });
-    connect(m_performance, &QSlider::valueChanged, this, [this](int value) {
-        KdenliveSettings::setAiPerformancePercent(value);
+    connect(m_cpuBudget, &QSlider::valueChanged, this, [this](int value) {
+        KdenliveSettings::setAiCpuPercent(value);
+        KdenliveSettings::self()->save();
+        updatePerformanceSummary();
+    });
+    connect(m_gpuBudget, &QSlider::valueChanged, this, [this](int value) {
+        KdenliveSettings::setAiGpuPercent(value);
+        KdenliveSettings::self()->save();
+        updatePerformanceSummary();
+    });
+    connect(m_memoryBudget, &QSlider::valueChanged, this, [this](int value) {
+        KdenliveSettings::setAiMemoryPercent(value);
         KdenliveSettings::self()->save();
         updatePerformanceSummary();
     });
@@ -563,7 +609,11 @@ void AssistantDock::updateAudioSetup()
     const QStringList models = m_transcriber->installedModels();
     const QString active = m_transcriber->activeModel();
     if (m_transcriber->isReady()) {
-        m_audioStatus->setText(i18n("Whisper audio analysis is ready with model %1. Installed models: %2.", active, models.join(QStringLiteral(", "))));
+        m_audioStatus->setText(m_transcriber->gpuEngineReady()
+                                   ? i18n("%1 is ready. Active model: %2. Installed models: %3.", m_transcriber->gpuEngineDescription(), active,
+                                          models.join(QStringLiteral(", ")))
+                                   : i18n("Whisper audio analysis is ready with model %1. Installed models: %2.", active,
+                                          models.join(QStringLiteral(", "))));
         m_audioSetup->setText(i18n("Check updates / manage audio models"));
     } else if (m_transcriber->canManageModels()) {
         m_audioStatus->setText(i18n("Whisper is installed, but no speech model is ready."));
@@ -655,12 +705,14 @@ void AssistantDock::testCredential()
 
 void AssistantDock::updatePerformanceSummary()
 {
-    const int percent = m_performance->value();
-    const int automaticThreads = qMax(1, qRound(double(ResourceBudget::logicalCpuCount()) * double(percent) / 100.0));
+    const int cpuPercent = m_cpuBudget->value();
+    const int gpuPercent = m_gpuBudget->value();
+    const int memoryPercent = m_memoryBudget->value();
+    const int automaticThreads = qMax(1, qRound(double(ResourceBudget::logicalCpuCount()) * double(cpuPercent) / 100.0));
     const int threads = m_cpuThreads->value() == 0 ? automaticThreads : m_cpuThreads->value();
-    const double memoryGiB = double(ResourceBudget::totalMemoryBytes()) * double(percent) / 100.0 / double(1024ULL * 1024ULL * 1024ULL);
-    m_performanceSummary->setText(i18n("%1% best-effort budget · %2 of %3 CPU threads · up to %4 GiB memory", percent, threads,
-                                       ResourceBudget::logicalCpuCount(), QString::number(memoryGiB, 'f', 1)));
+    const double memoryGiB = double(ResourceBudget::totalMemoryBytes()) * double(memoryPercent) / 100.0 / double(1024ULL * 1024ULL * 1024ULL);
+    m_performanceSummary->setText(i18n("CPU: %1% (%2 of %3 threads) · GPU/VRAM: %4% best effort · memory: %5% (up to %6 GiB)", cpuPercent, threads,
+                                       ResourceBudget::logicalCpuCount(), gpuPercent, memoryPercent, QString::number(memoryGiB, 'f', 1)));
     if (m_localVision && m_visualHardware) {
         m_visualHardware->setText(i18n("%1\n%2", m_localVision->hardwareSummary(), m_localVision->recommendationSummary()));
     }
@@ -930,15 +982,18 @@ void AssistantDock::generatePlan()
         setStatus(i18n("Open a project timeline before requesting an edit."), true);
         return;
     }
-    if (m_analyzeVideo->isChecked() && m_analyzeAudio->isChecked()) {
-        setStatus(i18n("Run visual and transcript analysis as separate plans for now. Apply the person-aware fast motion first, then request the audio cleanup."), true);
-        return;
-    }
     resetPlanPreview();
     m_pendingPrompt = m_prompt->toPlainText();
+    m_combinedAnalysis = false;
+    m_pendingPersonRanges.clear();
+    m_pendingVisualBackend.clear();
+    m_pendingVisualContext.clear();
+    m_pendingVisualFingerprint.clear();
     if (m_analyzeVideo->isChecked()) {
-        m_pendingVisualTargetFrames = PersonRetimePlanner::targetDurationFrames(m_pendingPrompt, pCore->getCurrentFps());
-        if (m_pendingVisualTargetFrames < 1) {
+        const bool personAwareFastMotion = PersonRetimePlanner::isPersonAwareFastMotionInstruction(m_pendingPrompt);
+        m_pendingVisualTargetFrames =
+            personAwareFastMotion ? PersonRetimePlanner::targetDurationFrames(m_pendingPrompt, pCore->getCurrentFps()) : -1;
+        if (personAwareFastMotion && m_pendingVisualTargetFrames < 1) {
             setStatus(i18n("For person-aware fast motion, include the desired final duration, for example: “reduce the video to 5 minutes”."), true);
             return;
         }
@@ -946,36 +1001,64 @@ void AssistantDock::generatePlan()
             setStatus(i18n("Local person detection is not ready. Choose Prepare / download person detector first."), true);
             return;
         }
+        const bool localVisualRetimeOnly = personAwareFastMotion && !m_analyzeAudio->isChecked();
+        if (!localVisualRetimeOnly && !validateProviderConfiguration()) {
+            return;
+        }
+        m_combinedAnalysis = !localVisualRetimeOnly;
         m_localVision->start(timelineWidget->model(), pCore->getCurrentFps());
         return;
     }
 
-    updateCredentialStatus();
-    if (selectedModel().isEmpty()) {
-        setStatus(i18n("Choose a model before sending the request."), true);
-        return;
-    }
-    if (selectedProvider() != AiProvider::Ollama && selectedApiKey().trimmed().isEmpty()) {
-        setStatus(i18n("The API key is missing. Set %1 and restart Kdenlive.", AiProviderClient::environmentVariable(selectedProvider())), true);
-        return;
-    }
-    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(selectedModel())) {
-        setStatus(i18n("Local AI is not ready. Choose Prepare / download local model first."), true);
+    if (!validateProviderConfiguration()) {
         return;
     }
     if (m_analyzeAudio->isChecked()) {
-        const int timelineFrames = timelineWidget->model()->duration();
-        const double fps = pCore->getCurrentFps();
-        const auto saved = AiSessionStore::loadUniqueCompatibleRequest(m_pendingPrompt, timelineFrames, fps);
-        if (saved) {
-            setStatus(i18n("Saved transcript and analysis found. Skipping local audio preparation and continuing at segment %1.", saved->nextChunk + 1));
-            requestProviderPlan(saved->transcript, saved->timelineFingerprint);
-            return;
-        }
-        m_transcriber->start(timelineWidget->model(), pCore->getCurrentFps());
+        startTranscriptPlanAnalysis();
     } else {
         requestProviderPlan();
     }
+}
+
+bool AssistantDock::validateProviderConfiguration()
+{
+    updateCredentialStatus();
+    if (selectedModel().isEmpty()) {
+        setStatus(i18n("Choose a model before sending the request."), true);
+        return false;
+    }
+    if (selectedProvider() != AiProvider::Ollama && selectedApiKey().trimmed().isEmpty()) {
+        setStatus(i18n("The API key is missing. Set %1 and restart Kdenlive.", AiProviderClient::environmentVariable(selectedProvider())), true);
+        return false;
+    }
+    if (selectedProvider() == AiProvider::Ollama && !m_localAi->isModelReady(selectedModel())) {
+        setStatus(i18n("Local AI is not ready. Choose Prepare / download local model first."), true);
+        return false;
+    }
+    return true;
+}
+
+void AssistantDock::startTranscriptPlanAnalysis()
+{
+    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
+    if (!timelineWidget || !timelineWidget->model()) {
+        setStatus(i18n("The active timeline is no longer available."), true);
+        return;
+    }
+    const int timelineFrames = timelineWidget->model()->duration();
+    const double fps = pCore->getCurrentFps();
+    std::optional<AiSessionCheckpoint> saved;
+    if (!m_combinedAnalysis) {
+        saved = AiSessionStore::loadUniqueCompatibleRequest(m_pendingPrompt, timelineFrames, fps);
+    }
+    if (saved) {
+        setStatus(i18n("Saved transcript and analysis found. Skipping local audio preparation and continuing at segment %1.", saved->nextChunk + 1));
+        requestProviderPlan(saved->transcript, saved->timelineFingerprint);
+        return;
+    }
+    setStatus(m_combinedAnalysis ? i18n("Visual analysis completed and saved. Preparing the local transcript for the combined request…")
+                                 : i18n("Preparing the current timeline audio locally…"));
+    m_transcriber->start(timelineWidget->model(), fps);
 }
 
 void AssistantDock::handleVisualAnalysis(const LocalVisionResult &result)
@@ -986,15 +1069,28 @@ void AssistantDock::handleVisualAnalysis(const LocalVisionResult &result)
         setStatus(i18n("The active timeline is no longer available."), true);
         return;
     }
+    const double fps = pCore->getCurrentFps();
+    const int timelineFrames = timelineWidget->model()->duration();
+    const QVector<VisualFrameRange> personRanges = PersonRetimePlanner::normalizeDetections(
+        result.personFrames, result.sampleStepFrames, qMax(1, int(qRound(fps))), qMax(1, int(qRound(fps * 2.0))), timelineFrames);
+    if (m_combinedAnalysis) {
+        m_pendingPersonRanges = personRanges;
+        m_pendingVisualBackend = result.backend;
+        m_pendingVisualContext = personObservationContext(personRanges);
+        m_pendingVisualFingerprint = result.timelineFingerprint;
+        if (m_analyzeAudio->isChecked()) {
+            startTranscriptPlanAnalysis();
+        } else {
+            setStatus(i18n("Visual analysis completed and saved. Sending the requested visual context to the selected AI…"));
+            requestProviderPlan();
+        }
+        return;
+    }
     if (m_pendingVisualTargetFrames < 1) {
         hideProgress();
         setStatus(i18n("The requested visual target duration is no longer available. Generate the plan again."), true);
         return;
     }
-    const double fps = pCore->getCurrentFps();
-    const int timelineFrames = timelineWidget->model()->duration();
-    const QVector<VisualFrameRange> personRanges = PersonRetimePlanner::normalizeDetections(
-        result.personFrames, result.sampleStepFrames, qMax(1, int(qRound(fps))), qMax(1, int(qRound(fps * 2.0))), timelineFrames);
     const int requestedTargetFrames = m_pendingVisualTargetFrames;
     const PersonRetimePlanResult planned = PersonRetimePlanner::build(timelineWidget->model(), personRanges, requestedTargetFrames);
     m_pendingVisualTargetFrames = -1;
@@ -1041,12 +1137,13 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     if (transcript.isEmpty()) {
         m_chunkedRequest = false;
         showProgress(-1, -1, i18n("Waiting for the AI provider"));
-        m_client->requestPlan(selectedProvider(), selectedModel(), selectedApiKey(), m_pendingPrompt, timelineFrames, fps);
+        m_client->requestPlan(selectedProvider(), selectedModel(), selectedApiKey(), m_pendingPrompt, timelineFrames, fps, QString(), m_pendingVisualContext);
         return;
     }
 
-    const QString id = AiSessionStore::sessionId(timelineFingerprint, selectedProvider(), selectedModel(), m_pendingPrompt, timelineFrames, fps);
-    const auto saved = AiSessionStore::loadMostAdvancedCompatible(timelineFingerprint, m_pendingPrompt, timelineFrames, fps, transcript);
+    const QString effectiveFingerprint = combinedAnalysisFingerprint(timelineFingerprint, m_pendingVisualFingerprint);
+    const QString id = AiSessionStore::sessionId(effectiveFingerprint, selectedProvider(), selectedModel(), m_pendingPrompt, timelineFrames, fps);
+    const auto saved = AiSessionStore::loadMostAdvancedCompatible(effectiveFingerprint, m_pendingPrompt, timelineFrames, fps, transcript);
     const qsizetype chunkCharacters = saved ? saved->chunkCharacters : AiSessionStore::DefaultChunkCharacters;
     m_transcriptChunks = AiSessionStore::splitTranscript(transcript, timelineFrames, chunkCharacters);
     if (m_transcriptChunks.isEmpty()) {
@@ -1070,7 +1167,7 @@ void AssistantDock::requestProviderPlan(const QString &transcript, const QString
     } else {
         m_checkpoint = {};
         m_checkpoint.id = id;
-        m_checkpoint.timelineFingerprint = timelineFingerprint;
+        m_checkpoint.timelineFingerprint = effectiveFingerprint;
         m_checkpoint.provider = selectedProvider();
         m_checkpoint.model = selectedModel();
         m_checkpoint.prompt = m_pendingPrompt.trimmed();
@@ -1144,13 +1241,13 @@ void AssistantDock::requestNextTranscriptChunk()
     showProgress(qRound(double(m_checkpoint.nextChunk) * 100.0 / double(m_transcriptChunks.size())), remainingSeconds,
                  i18n("Analyzing transcript with AI · segment %1 of %2", chunkNumber, m_transcriptChunks.size()));
     m_client->requestPlan(m_checkpoint.provider, m_checkpoint.model, selectedApiKey(), chunkPrompt, m_checkpoint.timelineFrames, m_checkpoint.fps, chunk.text,
-                          true);
+                          m_pendingVisualContext, true);
 }
 
 void AssistantDock::handleProviderPlan(const QByteArray &planJson)
 {
     if (!m_chunkedRequest) {
-        showPlan(planJson);
+        presentGeneratedPlan(planJson);
         return;
     }
     const auto parsed = parseEditPlan(planJson, true);
@@ -1197,7 +1294,7 @@ void AssistantDock::finishChunkedPlan()
     }
     m_chunkedRequest = false;
     hideProgress();
-    if (parsed.plan.operations.isEmpty()) {
+    if (parsed.plan.operations.isEmpty() && !m_combinedAnalysis) {
         AiSessionStore::remove(m_checkpoint.id);
         m_checkpoint = {};
         m_transcriptChunks.clear();
@@ -1205,7 +1302,117 @@ void AssistantDock::finishChunkedPlan()
         setStatus(i18n("Analysis completed. No matching edits were found in the transcript."));
         return;
     }
-    showPlan(completePlan);
+    presentGeneratedPlan(completePlan);
+}
+
+void AssistantDock::presentGeneratedPlan(const QByteArray &planJson)
+{
+    if (m_combinedAnalysis) {
+        showCombinedPlan(planJson);
+    } else {
+        showPlan(planJson);
+    }
+}
+
+void AssistantDock::showCombinedPlan(const QByteArray &semanticPlanJson)
+{
+    const EditPlanParseResult semantic = parseEditPlan(semanticPlanJson, true);
+    if (!semantic.isValid()) {
+        hideProgress();
+        setStatus(i18n("The transcript plan cannot be combined safely: %1 Progress remains saved.", semantic.error), true);
+        return;
+    }
+    TimelineWidget *timelineWidget = m_mainWindow->getCurrentTimeline();
+    if (!timelineWidget || !timelineWidget->model()) {
+        hideProgress();
+        setStatus(i18n("The active timeline is no longer available."), true);
+        return;
+    }
+    const int timelineFrames = timelineWidget->model()->duration();
+    int skippedPersonConflicts = 0;
+    const bool automaticPersonRetime = m_pendingVisualTargetFrames > 0;
+    const EditPlan semanticPlan = automaticPersonRetime
+        ? PersonRetimePlanner::withoutPersonRetimeConflicts(semantic.plan, m_pendingPersonRanges, &skippedPersonConflicts)
+        : semantic.plan;
+    if (semanticPlan.operations.isEmpty() && !automaticPersonRetime) {
+        const QString backend = m_pendingVisualBackend;
+        const int personIntervals = m_pendingPersonRanges.size();
+        m_combinedAnalysis = false;
+        m_pendingVisualTargetFrames = -1;
+        m_pendingPersonRanges.clear();
+        m_pendingVisualBackend.clear();
+        m_pendingVisualContext.clear();
+        m_pendingVisualFingerprint.clear();
+        AiSessionStore::remove(m_checkpoint.id);
+        m_checkpoint = {};
+        m_transcriptChunks.clear();
+        hideProgress();
+        resetPlanPreview();
+        setStatus(i18n("Combined analysis completed using %1 and %2 person intervals. No matching edit was requested or found.", backend, personIntervals));
+        return;
+    }
+    const int semanticReduction = PersonRetimePlanner::retimeReductionFrames(semanticPlan);
+    const int requiredReduction = automaticPersonRetime ? timelineFrames - m_pendingVisualTargetFrames : 0;
+    if (automaticPersonRetime && semanticReduction > requiredReduction) {
+        hideProgress();
+        setStatus(i18n("The transcript edits alone would make the result shorter than the requested final duration. Increase the final duration or request less acceleration. "
+                       "Both completed local analyses remain saved."),
+                  true);
+        return;
+    }
+
+    EditPlan combined = semanticPlan;
+    const int visualTargetFrames = automaticPersonRetime ? m_pendingVisualTargetFrames + semanticReduction : timelineFrames;
+    if (automaticPersonRetime && visualTargetFrames < timelineFrames) {
+        const QVector<VisualFrameRange> protectedRanges =
+            PersonRetimePlanner::combinedProtectedRanges(m_pendingPersonRanges, semanticPlan, timelineFrames);
+        const PersonRetimePlanResult visual = PersonRetimePlanner::build(timelineWidget->model(), protectedRanges, visualTargetFrames);
+        if (!visual.isValid()) {
+            hideProgress();
+            setStatus(i18n("The audio and visual analyses finished, but their safe edit ranges could not reach the requested duration: %1 Both analyses remain saved.",
+                           visual.error),
+                      true);
+            return;
+        }
+        combined.operations += visual.plan.operations;
+    }
+    std::sort(combined.operations.begin(), combined.operations.end(),
+              [](const EditOperation &left, const EditOperation &right) { return left.startFrame() < right.startFrame(); });
+
+    QJsonArray operations;
+    for (const EditOperation &edit : std::as_const(combined.operations)) {
+        if (edit.type == EditOperationType::RetimeRange) {
+            const RetimeRangeOperation &operation = edit.retimeRange;
+            operations.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("retime_range")},
+                                          {QStringLiteral("start_frame"), operation.startFrame},
+                                          {QStringLiteral("end_frame"), operation.endFrame},
+                                          {QStringLiteral("target_duration_frames"), operation.targetDurationFrames},
+                                          {QStringLiteral("preserve_pitch"), operation.preservePitch}});
+        } else {
+            operations.append(QJsonObject{{QStringLiteral("type"), QStringLiteral("mute_range")},
+                                          {QStringLiteral("start_frame"), edit.muteRange.startFrame},
+                                          {QStringLiteral("end_frame"), edit.muteRange.endFrame}});
+        }
+    }
+    const QByteArray json = QJsonDocument(QJsonObject{{QStringLiteral("version"), 1}, {QStringLiteral("operations"), operations}})
+                                .toJson(QJsonDocument::Compact);
+    const QString backend = m_pendingVisualBackend;
+    const int personIntervals = m_pendingPersonRanges.size();
+    m_combinedAnalysis = false;
+    m_pendingVisualTargetFrames = -1;
+    m_pendingPersonRanges.clear();
+    m_pendingVisualBackend.clear();
+    m_pendingVisualContext.clear();
+    m_pendingVisualFingerprint.clear();
+    showPlan(json);
+    if (m_hasPlan) {
+        setStatus(automaticPersonRetime
+                      ? i18n("Combined audio and visual plan ready using %1. %2 person intervals were protected and %3 conflicting transcript speed edits "
+                             "were skipped. Review, then choose Apply.",
+                             backend, personIntervals, skippedPersonConflicts)
+                      : i18n("AI plan ready using the requested local audio/visual context and %1 person intervals detected by %2. Review, then choose Apply.",
+                             personIntervals, backend));
+    }
 }
 
 void AssistantDock::resetPlanPreview()
@@ -1344,6 +1551,12 @@ void AssistantDock::discardPlan()
     m_checkpoint = {};
     m_transcriptChunks.clear();
     m_chunkedRequest = false;
+    m_combinedAnalysis = false;
+    m_pendingVisualTargetFrames = -1;
+    m_pendingPersonRanges.clear();
+    m_pendingVisualBackend.clear();
+    m_pendingVisualContext.clear();
+    m_pendingVisualFingerprint.clear();
     m_pendingPrompt.clear();
     resetPlanPreview();
     if (!m_client->isBusy()) {
@@ -1451,7 +1664,9 @@ void AssistantDock::setBusy(bool busy)
     m_removeKey->setEnabled(!anyBusy && !local && !SecureCredentialStore::read(selectedProvider()).isEmpty());
     m_localSetup->setEnabled(!anyBusy && local);
     m_visualSetup->setEnabled(!anyBusy);
-    m_performance->setEnabled(!anyBusy);
+    m_cpuBudget->setEnabled(!anyBusy);
+    m_gpuBudget->setEnabled(!anyBusy);
+    m_memoryBudget->setEnabled(!anyBusy);
     m_cpuThreads->setEnabled(!anyBusy);
     m_processingDevice->setEnabled(!anyBusy);
     m_preset->setEnabled(!anyBusy);

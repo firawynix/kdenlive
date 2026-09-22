@@ -183,10 +183,12 @@ QString systemPrompt()
         "that the user did not request. Example at 25 FPS: instruction 'mute vacation talk and compress silence over 2 seconds to 0.5 seconds', "
         "transcript '[0-40] vacation plans' and '[110-160] Salesforce work' produces mute_range 0-40 and retime_range 40-110 with "
         "target_duration_frames=13 and preserve_pitch=true. It does not edit 110-160 or trailing silence, and never emits a no-op retime. If the supplied "
-        "transcript segment contains no requested edit, return version 1 with an empty operations array.");
+        "transcript segment contains no requested edit, return version 1 with an empty operations array. Timestamped visual observations identify only "
+        "ranges where a person was detected locally. Use them only when relevant to the user's instruction, never infer identity or activity, and never "
+        "invent an edit merely because a person is present or absent.");
 }
 
-QString userMessage(const QString &prompt, int timelineFrames, double fps, const QString &transcript)
+QString userMessage(const QString &prompt, int timelineFrames, double fps, const QString &transcript, const QString &visualContext)
 {
     QString message = QStringLiteral("Project context: FPS=%1; timeline_duration_frames=%2.\nUser instruction: %3")
                           .arg(QString::number(fps, 'g', 12))
@@ -194,6 +196,9 @@ QString userMessage(const QString &prompt, int timelineFrames, double fps, const
                           .arg(prompt);
     if (!transcript.isEmpty()) {
         message += QStringLiteral("\nTimestamped local transcript (media was not uploaded):\n%1").arg(transcript);
+    }
+    if (!visualContext.isEmpty()) {
+        message += QStringLiteral("\nTimestamped local visual observations (video frames were not uploaded):\n%1").arg(visualContext);
     }
     return message;
 }
@@ -418,7 +423,7 @@ BuiltAiRequest AiProviderClient::buildConnectionTestRequest(AiProvider provider,
 }
 
 BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames,
-                                              double fps, const QString &transcript, bool allowEmptyPlan)
+                                              double fps, const QString &transcript, const QString &visualContext, bool allowEmptyPlan)
 {
     BuiltAiRequest result;
     if (model.trimmed().isEmpty()) {
@@ -443,7 +448,7 @@ BuiltAiRequest AiProviderClient::buildRequest(AiProvider provider, const QString
     const QJsonArray messages{
         QJsonObject{{QStringLiteral("role"), QStringLiteral("system")}, {QStringLiteral("content"), systemPrompt()}},
         QJsonObject{{QStringLiteral("role"), QStringLiteral("user")},
-                    {QStringLiteral("content"), userMessage(prompt.trimmed(), timelineFrames, fps, transcript)}},
+                    {QStringLiteral("content"), userMessage(prompt.trimmed(), timelineFrames, fps, transcript, visualContext)}},
     };
 
     QJsonObject body;
@@ -642,13 +647,13 @@ bool AiProviderClient::isBusy() const
 }
 
 void AiProviderClient::requestPlan(AiProvider provider, const QString &model, const QByteArray &apiKey, const QString &prompt, int timelineFrames, double fps,
-                                   const QString &transcript, bool allowEmptyPlan)
+                                   const QString &transcript, const QString &visualContext, bool allowEmptyPlan)
 {
     if (isBusy()) {
         Q_EMIT errorOccurred(i18n("An AI request is already running."));
         return;
     }
-    const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps, transcript, allowEmptyPlan);
+    const BuiltAiRequest built = buildRequest(provider, model, apiKey, prompt, timelineFrames, fps, transcript, visualContext, allowEmptyPlan);
     if (!built.isValid()) {
         Q_EMIT errorOccurred(built.error);
         return;
