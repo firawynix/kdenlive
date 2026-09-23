@@ -103,6 +103,20 @@ jobs:
           python $bootstrap --prefix $env:CRAFT_ROOT --use-defaults --localDev $craftSource
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+          # Qt 6 explicitly uses Craft's SUBST short path even when ordinary
+          # junction short paths are disabled above. Its recipe requires a
+          # configured drive letter before unpacking qtbase.
+          if (Test-Path -LiteralPath "Z:\") {
+            throw "Craft short-path drive Z: is already in use on this runner."
+          }
+          $settingsPath = Join-Path $env:CRAFT_ROOT "etc\CraftSettings.ini"
+          $settings = Get-Content -LiteralPath $settingsPath -Raw
+          $driveSetting = "#DriveLetter = Z:/"
+          if (-not $settings.Contains($driveSetting)) {
+            throw "Unable to locate Craft's short-path drive setting."
+          }
+          Set-Content -LiteralPath $settingsPath -Value $settings.Replace($driveSetting, "DriveLetter = Z:/") -Encoding utf8
+
       - name: Select stable gettext host tools
         shell: pwsh
         run: |

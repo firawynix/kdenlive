@@ -40,3 +40,19 @@ Craft can warn that Windows Developer Mode is disabled. That warning only means
 archive extraction cannot use fast symbolic links; it did not prevent the build
 or test from succeeding. Enabling Developer Mode remains an optional
 administrator-level optimization.
+
+## GitHub runner short paths
+
+Entry: `.github/workflows/build-windows.yml:Bootstrap KDE Craft`
+
+- Ordinary Craft junction short paths are disabled because Autotools-generated
+  makefiles can retain a stale junction after Craft recreates it.
+- The Qt 6 recipe separately calls `CraftShortPath.createSubstShortPath()`.
+  It requires `[ShortPath] DriveLetter = Z:/` in the bootstrapped
+  `CraftSettings.ini` before `qtbase` unpacking; disabling junctions alone does
+  not remove this requirement.
+- Run 35782592871 failed at `qtbase` unpack with "Failed to find [ShortPath]
+  DriveLetter". The workflow now sets that option after bootstrap, while
+  leaving ordinary junctions disabled.
+
+Updated: 2026-09-22
