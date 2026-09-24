@@ -198,6 +198,12 @@ jobs:
         run: |
           # Craft prints only FFmpeg's final configure error. Its config.log
           # contains the individual compiler/link probes needed to fix it.
+          $savedLog = Join-Path $env:GITHUB_WORKSPACE "ffmpeg-config.log"
+          if (Test-Path -LiteralPath $savedLog) {
+            Write-Host "FFmpeg configure diagnostics saved at: $savedLog"
+            Get-Content -LiteralPath $savedLog -Tail 200
+            exit 0
+          }
           $craft = Join-Path $env:CRAFT_ROOT "craft\bin\craft.py"
           $buildDir = (python $craft --ci-mode --get "buildDir()" libs/ffmpeg | Out-String).Trim()
           $candidate = if ($LASTEXITCODE -eq 0 -and $buildDir -match '^[A-Za-z]:[\\/]') {
@@ -215,6 +221,14 @@ jobs:
           } else {
             Write-Warning "FFmpeg ffbuild/config.log was not found after Craft failed."
           }
+
+      - name: Upload FFmpeg configure log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-config-log-${{ github.run_id }}
+          path: ffmpeg-config.log
+          if-no-files-found: ignore
 
       - name: Resolve Craft build directory and release version
         id: metadata
