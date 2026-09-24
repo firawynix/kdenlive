@@ -192,6 +192,30 @@ jobs:
           python $craft --ci-mode --options "[CodeSigning]Enabled=False" dev-utils/innosetup
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Show FFmpeg configure diagnostics on failure
+        if: failure()
+        shell: pwsh
+        run: |
+          # Craft prints only FFmpeg's final configure error. Its config.log
+          # contains the individual compiler/link probes needed to fix it.
+          $craft = Join-Path $env:CRAFT_ROOT "craft\bin\craft.py"
+          $buildDir = (python $craft --ci-mode --get "buildDir()" libs/ffmpeg | Out-String).Trim()
+          $candidate = if ($LASTEXITCODE -eq 0 -and $buildDir -match '^[A-Za-z]:[\\/]') {
+            Join-Path $buildDir "ffbuild\config.log"
+          }
+          if (-not $candidate -or -not (Test-Path -LiteralPath $candidate)) {
+            $candidate = Get-ChildItem -LiteralPath "C:\_" -Filter config.log -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -match '[\\/]ffbuild[\\/]config\.log$' } |
+              Sort-Object LastWriteTimeUtc -Descending |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            Write-Host "FFmpeg configure diagnostics: $candidate"
+            Get-Content -LiteralPath $candidate -Tail 200
+          } else {
+            Write-Warning "FFmpeg ffbuild/config.log was not found after Craft failed."
+          }
+
       - name: Resolve Craft build directory and release version
         id: metadata
         shell: pwsh
