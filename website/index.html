@@ -70,6 +70,7 @@
     @media(max-width:1050px){.intro{grid-template-columns:1fr}.identity{display:none}.tour{grid-template-columns:1fr}.guide{border-left:0;border-top:1px solid var(--line)}.workspace{grid-template-columns:300px 1fr}.cards{grid-template-columns:1fr 1fr}}
     @media(max-width:720px){.shell{width:min(100% - 24px,1480px)}header{height:auto;padding:14px 0}nav a:not(.button){display:none}.intro{padding:48px 0}.facts{grid-template-columns:1fr}.section-head{display:block}.section-head p{margin-top:14px}.tour{min-height:0}.stage{padding:10px;overflow:auto}.window{width:950px;min-height:590px}.guide{min-height:620px}.cards{grid-template-columns:1fr}.dock{position:static}}
   </style>
+<link rel="stylesheet" href="/project-footer.css?v=1">
 </head>
 <body>
   <header class="shell">
@@ -168,5 +169,6 @@
     function show(index){current=(index+tourSteps.length)%tourSteps.length;const s=tourSteps[current];document.querySelector("#count").textContent=`PASSO ${current+1} DE ${tourSteps.length}`;document.querySelector("#step-title").textContent=s.title;document.querySelector("#step-copy").textContent=s.copy;document.querySelectorAll(".step").forEach((el,i)=>el.classList.toggle("on",i===current));document.querySelectorAll(".hot").forEach(el=>el.classList.remove("hot"));document.querySelector(`#${s.target}`)?.classList.add("hot")}
     document.querySelector("#prev").onclick=()=>show(current-1);document.querySelector("#next").onclick=()=>show(current+1);addEventListener("keydown",e=>{if(e.key==="ArrowRight")show(current+1);if(e.key==="ArrowLeft")show(current-1)});show(0);
   </script>
+<script defer src="/project-footer.js?v=1" data-project="kdenlive"></script>
 </body>
 </html>

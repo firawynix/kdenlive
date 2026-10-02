@@ -1,0 +1,20 @@
+body.fw-footer-active{padding-bottom:76px!important}
+.fw-footer,.fw-footer *{box-sizing:border-box}
+.fw-footer{position:fixed!important;inset:auto 0 0!important;z-index:9990!important;background:rgba(10,24,35,.96)!important;border-top:1px solid #34536a!important;box-shadow:0 -14px 35px #020a12a8!important;backdrop-filter:blur(14px);color:#f3fbff!important;font:13px/1.4 Arial,sans-serif!important}
+.fw-footer-inner{max-width:1180px;min-height:76px;margin:auto;padding:8px 24px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.fw-footer-brand{color:#f3fbff!important;font-size:18px!important;font-weight:800!important;text-decoration:none!important;white-space:nowrap}
+.fw-footer-brand:hover{color:#4bdcf2!important}
+.fw-footer-credit{color:#8ba9ba;white-space:nowrap}
+.fw-footer-links{display:flex;align-items:center;gap:12px}
+.fw-footer-links>a,.fw-footer-downloads summary{display:block;padding:10px 12px;border-radius:7px;color:#bdd5e0!important;font-size:13px!important;font-weight:700!important;text-decoration:none!important;white-space:nowrap;cursor:pointer}
+.fw-footer-links>a:hover,.fw-footer-downloads summary:hover,.fw-footer-downloads[open] summary{background:#173544!important;color:#4bdcf2!important}
+.fw-footer-links .fw-footer-support{background:linear-gradient(125deg,#2dcde6,#73e8fa)!important;color:#06202a!important;padding:11px 18px}
+.fw-footer-links .fw-footer-support:hover{background:#94f4ff!important;color:#06202a!important}
+.fw-footer-downloads{position:relative}
+.fw-footer-downloads summary{list-style:none}
+.fw-footer-downloads summary::-webkit-details-marker{display:none}
+.fw-footer-download-menu{position:absolute;bottom:calc(100% + 13px);left:0;min-width:265px;max-width:min(360px,calc(100vw - 32px));padding:8px;background:#102332;border:1px solid #3b6174;border-radius:10px;box-shadow:0 20px 50px #020a12d9;display:grid;gap:2px}
+.fw-footer-download-menu a{display:block;padding:11px 12px;border-radius:7px;color:#e1f4fb!important;text-decoration:none!important;white-space:normal!important;font-size:13px!important}
+.fw-footer-download-menu a:hover{background:#173544;color:#4bdcf2!important}
+@media(max-width:760px){.fw-footer-credit{display:none}}
+@media(max-width:640px){body.fw-footer-active{padding-bottom:102px!important}.fw-footer-inner{min-height:102px;padding:8px 16px;flex-direction:column;align-items:stretch;gap:3px}.fw-footer-brand{font-size:16px!important}.fw-footer-links{justify-content:space-between;gap:2px}.fw-footer-links>a,.fw-footer-downloads summary{font-size:11px!important;padding:7px 5px}.fw-footer-links .fw-footer-support{padding:8px 9px}}
