@@ -1,5 +1,6 @@
 services:
   site:
+    mem_limit: 128m   # teto por capacidade (04/10/2026; docs/guias/LIMITES-E-SAUDE.md)
     image: nginx:alpine
     container_name: firawynix-kdenlive-site
     restart: unless-stopped
